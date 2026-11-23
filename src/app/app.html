@@ -1,0 +1,40 @@
+
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-icon">M</span>
+      <div>
+        <strong>MargeWeb</strong>
+        <small>CRM</small>
+      </div>
+    </div>
+
+    <nav class="navigation">
+      <a
+        routerLink="/"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }">
+        ◫ Tableau de bord
+      </a>
+
+      <a
+        routerLink="/prospects"
+        routerLinkActive="active">
+        ♙ Prospects
+      </a>
+
+      <a class="disabled">▤ Pipeline</a>
+      <a class="disabled">◷ Relances</a>
+      <a class="disabled">♧ Clients</a>
+      <a class="disabled">▣ Abonnements</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      MargeWeb CRM · v1.0
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <router-outlet />
+  </main>
+</div>

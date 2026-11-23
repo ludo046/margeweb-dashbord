@@ -1,0 +1,154 @@
+
+<div class="prospect-detail">
+  <a routerLink="/prospects" class="back-link">
+    ← Retour aux prospects
+  </a>
+
+  @if (prospect(); as p) {
+    <header class="detail-header">
+      <div>
+        <span class="eyebrow">FICHE PROSPECT</span>
+        <h1>{{ p.name }}</h1>
+        <p>{{ p.location }}</p>
+      </div>
+
+      @if (!editing()) {
+        <button class="primary-btn" (click)="startEditing()">
+          Modifier la fiche
+        </button>
+      }
+    </header>
+
+    @if (editing() && draft; as form) {
+      <form class="detail-grid" (ngSubmit)="save()">
+        <section class="panel">
+          <h2>Informations générales</h2>
+
+          <label for="name">Nom de la course</label>
+          <input id="name" name="name"
+                 [(ngModel)]="form.name" required />
+
+          <label for="location">Localisation</label>
+          <input id="location" name="location"
+                 [(ngModel)]="form.location" />
+
+          <label for="email">E-mail</label>
+          <input id="email" name="email" type="email"
+                 [(ngModel)]="form.email" />
+
+          <label for="phone">Téléphone</label>
+          <input id="phone" name="phone"
+                 [(ngModel)]="form.phone" />
+
+          <label for="website">Site actuel</label>
+          <input id="website" name="website"
+                 [(ngModel)]="form.website" />
+        </section>
+
+        <section class="panel">
+          <h2>Suivi commercial</h2>
+
+          <label for="status">Statut</label>
+          <select id="status" name="status"
+                  [(ngModel)]="form.status">
+            @for (status of statuses; track status) {
+              <option [value]="status">{{ status }}</option>
+            }
+          </select>
+
+          <label for="quote">Devis création (€)</label>
+          <input id="quote" name="creationQuote" type="number"
+                 [(ngModel)]="form.creationQuote" />
+
+          <label for="subscription">Abonnement mensuel (€)</label>
+          <input id="subscription" name="monthlySubscription"
+                 type="number"
+                 [(ngModel)]="form.monthlySubscription" />
+
+          <label for="followup">Prochaine relance</label>
+          <input id="followup" name="nextFollowUp" type="date"
+                 [(ngModel)]="form.nextFollowUp" />
+
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" rows="5"
+                    [(ngModel)]="form.notes"></textarea>
+        </section>
+
+        <div class="form-actions">
+          <button type="button" class="secondary-btn"
+                  (click)="cancelEditing()">
+            Annuler
+          </button>
+          <button type="submit" class="primary-btn">
+            Enregistrer
+          </button>
+        </div>
+      </form>
+    } @else {
+      <div class="detail-grid">
+        <section class="panel">
+          <h2>Informations générales</h2>
+
+          <div class="field">
+            <span>Nom de la course</span>
+            <strong>{{ p.name }}</strong>
+          </div>
+
+          <div class="field">
+            <span>Localisation</span>
+            <strong>{{ p.location || 'Non renseignée' }}</strong>
+          </div>
+
+          <div class="field">
+            <span>E-mail</span>
+            <strong>{{ p.email || 'Non renseigné' }}</strong>
+          </div>
+
+          <div class="field">
+            <span>Téléphone</span>
+            <strong>{{ p.phone || 'Non renseigné' }}</strong>
+          </div>
+
+          <div class="field">
+            <span>Site actuel</span>
+            <strong>{{ p.website || 'Non renseigné' }}</strong>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Suivi commercial</h2>
+
+          <div class="field">
+            <span>Statut</span>
+            <strong class="status">{{ p.status }}</strong>
+          </div>
+
+          <div class="field">
+            <span>Devis création</span>
+            <strong>{{ p.creationQuote ?? '—' }} €</strong>
+          </div>
+
+          <div class="field">
+            <span>Abonnement mensuel</span>
+            <strong>{{ p.monthlySubscription ?? '—' }} €/mois</strong>
+          </div>
+
+          <div class="field">
+            <span>Prochaine relance</span>
+            <strong>{{ p.nextFollowUp || 'Non planifiée' }}</strong>
+          </div>
+
+          <div class="field">
+            <span>Notes</span>
+            <p>{{ p.notes || 'Aucune note pour le moment.' }}</p>
+          </div>
+        </section>
+      </div>
+    }
+  } @else {
+    <section class="panel">
+      <h2>Prospect introuvable</h2>
+      <a routerLink="/prospects">Retour à la liste</a>
+    </section>
+  }
+</div>

@@ -1,7 +1,7 @@
 
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   Prospect,
   ProspectStatus,
@@ -17,19 +17,40 @@ import {
 })
 export class ProspectDetail {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly service = inject(ProspectsService);
+
+  readonly isNew = this.route.snapshot.routeConfig?.path === 'prospects/new';
+  readonly saving = signal(false);
+  readonly saveError = signal<string | null>(null);
+  readonly loading = this.service.loading;
+  readonly loadError = this.service.error;
+  readonly deleting = signal(false);
+  readonly confirmDelete = signal(false);
 
   private readonly id = Number(
     this.route.snapshot.paramMap.get('id')
   );
 
   readonly prospect = computed(() =>
-    this.service.prospects().find(p => p.id === this.id)
+    this.service.findById(this.id)
   );
 
-  readonly editing = signal(false);
+  readonly editing = signal(this.isNew);
 
-  draft: Prospect | null = null;
+  draft: Prospect | null = this.isNew
+    ? {
+        id: 0,
+        name: '',
+        location: '',
+        email: '',
+        phone: '',
+        website: '',
+        status: 'À contacter',
+        notes: '',
+        nextFollowUp: ''
+      }
+    : null;
 
   readonly statuses: ProspectStatus[] = [
     'À contacter',
@@ -48,15 +69,77 @@ export class ProspectDetail {
   }
 
   cancelEditing(): void {
+    if (this.isNew) {
+      this.router.navigate(['/prospects']);
+      return;
+    }
+
     this.draft = null;
     this.editing.set(false);
   }
 
-  save(): void {
-    if (!this.draft) return;
+  
+async save(): Promise<void> {
+  if (!this.draft || !this.draft.name.trim()) return;
+  if (this.saving()) return;
 
-    this.service.update(this.id, this.draft);
+  this.saving.set(true);
+  this.saveError.set(null);
+
+  try {
+    this.draft.name = this.draft.name.trim();
+
+    if (this.isNew) {
+      const { id, ...data } = this.draft;
+
+      const created = await this.service.create(data);
+
+      await this.router.navigate([
+        '/prospects',
+        created.id
+      ]);
+
+      return;
+    }
+
+    await this.service.update(this.id, this.draft);
+
     this.draft = null;
     this.editing.set(false);
+
+  } catch (error) {
+    console.error(error);
+
+    this.saveError.set(
+      'Impossible d’enregistrer le prospect.'
+    );
+
+  } finally {
+    this.saving.set(false);
   }
+}
+
+
+async deleteProspect(): Promise<void> {
+  if (this.deleting()) return;
+
+  this.deleting.set(true);
+  this.saveError.set(null);
+
+  try {
+    await this.service.remove(this.id);
+    await this.router.navigate(['/prospects']);
+
+  } catch (error) {
+    console.error(error);
+    this.saveError.set(
+      'Impossible de supprimer le prospect.'
+    );
+
+  } finally {
+    this.deleting.set(false);
+  }
+}
+
+
 }

@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+server/database/
+node_modules/

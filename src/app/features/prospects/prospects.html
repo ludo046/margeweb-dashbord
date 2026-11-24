@@ -7,9 +7,15 @@
       <p>Retrouve toutes tes opportunités commerciales.</p>
     </div>
 
-    <span class="count">
-      {{ filteredProspects().length }} prospect(s)
-    </span>
+<div class="header-actions">
+  <span class="count">
+    {{ filteredProspects().length }} prospect(s)
+  </span>
+
+  <a routerLink="/prospects/new" class="primary-btn">
+    + Nouveau prospect
+  </a>
+</div>
   </header>
 
   <div class="toolbar">
@@ -38,15 +44,22 @@
           <th>Localisation</th>
           <th>E-mail</th>
           <th>Statut</th>
+          <th>Actions</th>
         </tr>
       </thead>
 
       <tbody>
         @for (prospect of filteredProspects(); track prospect.id) {
           <tr>
-            <td class="name">{{ prospect.name }}</td>
+            <td class="name">
+              <a [routerLink]="['/prospects', prospect.id]">
+                {{ prospect.name }}
+              </a>
+            </td>
+
             <td>{{ prospect.location }}</td>
             <td>{{ prospect.email }}</td>
+
             <td>
               <select
                 class="status-select"
@@ -58,10 +71,19 @@
                 }
               </select>
             </td>
+
+            <td>
+              <a
+                class="detail-btn"
+                [routerLink]="['/prospects', prospect.id]"
+              >
+                Voir la fiche →
+              </a>
+            </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="4" class="empty">
+            <td colspan="5" class="empty">
               Aucun prospect ne correspond à ta recherche.
             </td>
           </tr>

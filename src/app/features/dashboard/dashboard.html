@@ -1,37 +1,135 @@
-    <section class="stats">
+
+<div class="dashboard">
+
+  <header class="topbar">
+    <div>
+      <span class="eyebrow">MARGEWEB CRM</span>
+      <h1>Tableau de bord</h1>
+      <p>Vue d'ensemble de ton activité commerciale.</p>
+    </div>
+
+    <button class="refresh-btn" (click)="refresh()">
+      ↻ Actualiser
+    </button>
+  </header>
+
+  @if (loading()) {
+    <p class="information">Chargement des données...</p>
+  } @else if (error()) {
+    <p class="information error">{{ error() }}</p>
+  } @else {
+
+    <div class="stats">
+
       <article class="stat-card">
         <span>Prospects</span>
-        <strong>65</strong>
-        <small>Base de prospection</small>
+        <strong>{{ totalProspects() }}</strong>
+        <small>{{ toContact() }} à contacter</small>
       </article>
 
       <article class="stat-card">
-        <span>Contacts</span>
-        <strong>49</strong>
-        <small>Valeur de démonstration</small>
+        <span>Contacts effectués</span>
+        <strong>{{ contacted() }}</strong>
+        <small>{{ toFollowUp() }} à relancer</small>
       </article>
 
       <article class="stat-card">
-        <span>Clients signés</span>
-        <strong>0</strong>
-        <small>À développer</small>
+        <span>Clients</span>
+        <strong>{{ clients() }}</strong>
+        <small>{{ conversionRate() }} % de conversion</small>
       </article>
 
-      <article class="stat-card">
-        <span>Revenus récurrents</span>
-        <strong>0 €</strong>
-        <small>Par mois</small>
+      <article class="stat-card accent">
+        <span>Revenu mensuel estimé</span>
+        <strong>
+          {{ monthlyRevenue() | currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+        </strong>
+        <small>Abonnements clients</small>
       </article>
-    </section>
 
-    <section class="welcome-card">
-      <div>
-        <span class="eyebrow">TON ESPACE COMMERCIAL</span>
-        <h2>Développons MargeWeb 🚀</h2>
-        <p>
-          Retrouve ici tes prospects, tes relances,
-          tes futurs clients et tes abonnements de maintenance.
-        </p>
-      </div>
-      <button type="button">Voir les prospects</button>
-    </section>
+    </div>
+
+    <div class="financial-grid">
+
+      <article class="financial-card">
+        <span>Potentiel de création de sites</span>
+        <strong>
+          {{ potentialQuotes() | currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+        </strong>
+        <small>Devis renseignés hors clients</small>
+      </article>
+
+      <article class="financial-card">
+        <span>Abonnements potentiels</span>
+        <strong>
+          {{ potentialRevenue() | currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+          <small>/ mois</small>
+        </strong>
+        <small>Revenus récurrents potentiels</small>
+      </article>
+
+    </div>
+
+    <div class="dashboard-grid">
+
+      <section class="panel">
+        <h2>Pipeline commercial</h2>
+        <p>Répartition de tes opportunités.</p>
+
+        @for (stage of pipeline(); track stage.label) {
+          <div class="pipeline-stage">
+
+            <div class="stage-label">
+              <span>{{ stage.label }}</span>
+              <strong>{{ stage.count }}</strong>
+            </div>
+
+            <div class="progress-track">
+              <div
+                class="progress-fill"
+                [style.background]="stage.color"
+                [style.width.%]="totalProspects()
+                  ? stage.count / totalProspects() * 100
+                  : 0"
+              ></div>
+            </div>
+
+          </div>
+        }
+      </section>
+
+      <section class="panel">
+
+        <div class="panel-heading">
+          <h2>Derniers prospects</h2>
+          <a routerLink="/prospects">Tout voir →</a>
+        </div>
+
+        @for (prospect of recentProspects(); track prospect.id) {
+          <a
+            class="recent-prospect"
+            [routerLink]="['/prospects', prospect.id]"
+          >
+            <div class="prospect-avatar">
+              {{ prospect.name.charAt(0).toUpperCase() }}
+            </div>
+
+            <div class="prospect-info">
+              <strong>{{ prospect.name }}</strong>
+              <small>{{ prospect.location }}</small>
+            </div>
+
+            <span class="status">
+              {{ prospect.status }}
+            </span>
+          </a>
+        } @empty {
+          <p>Aucun prospect enregistré.</p>
+        }
+
+      </section>
+
+    </div>
+  }
+
+</div>

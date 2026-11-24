@@ -1,96 +1,202 @@
 
 <div class="prospect-detail">
+
   <a routerLink="/prospects" class="back-link">
     ← Retour aux prospects
   </a>
 
-  @if (prospect(); as p) {
+  @if (!isNew && loading()) {
+  <section class="panel">
+    <p>Chargement du prospect...</p>
+  </section>
+} @else if (!isNew && loadError()) {
+  <section class="panel">
+    <p>{{ loadError() }}</p>
+  </section>
+} @else if (isNew || prospect()) {
+
     <header class="detail-header">
       <div>
-        <span class="eyebrow">FICHE PROSPECT</span>
-        <h1>{{ p.name }}</h1>
-        <p>{{ p.location }}</p>
+        <span class="eyebrow">
+          {{ isNew ? 'NOUVELLE OPPORTUNITÉ' : 'FICHE PROSPECT' }}
+        </span>
+
+        <h1>
+          {{ isNew ? 'Nouveau prospect' : prospect()?.name }}
+        </h1>
+
+        <p>
+          {{ isNew
+            ? 'Ajoute une nouvelle opportunité commerciale.'
+            : prospect()?.location }}
+        </p>
       </div>
 
-      @if (!editing()) {
-        <button class="primary-btn" (click)="startEditing()">
-          Modifier la fiche
-        </button>
-      }
+
+@if (!editing()) {
+  <div class="header-actions">
+
+    <button
+      class="danger-outline-btn"
+      (click)="confirmDelete.set(true)"
+    >
+      Supprimer
+    </button>
+
+    <button
+      class="primary-btn"
+      (click)="startEditing()"
+    >
+      Modifier la fiche
+    </button>
+
+  </div>
+}
+
     </header>
 
     @if (editing() && draft; as form) {
-      <form class="detail-grid" (ngSubmit)="save()">
+
+      <form
+        class="detail-grid"
+        #prospectForm="ngForm"
+        (ngSubmit)="prospectForm.valid && save()"
+      >
+
         <section class="panel">
           <h2>Informations générales</h2>
 
-          <label for="name">Nom de la course</label>
-          <input id="name" name="name"
-                 [(ngModel)]="form.name" required />
+          <label for="name">Nom de la course *</label>
+          <input
+            id="name"
+            name="name"
+            [(ngModel)]="form.name"
+            placeholder="Ex : Trail de la Margeride"
+            required
+          />
 
           <label for="location">Localisation</label>
-          <input id="location" name="location"
-                 [(ngModel)]="form.location" />
+          <input
+            id="location"
+            name="location"
+            [(ngModel)]="form.location"
+          />
 
           <label for="email">E-mail</label>
-          <input id="email" name="email" type="email"
-                 [(ngModel)]="form.email" />
+          <input
+            id="email"
+            name="email"
+            type="email"
+            email
+            [(ngModel)]="form.email"
+          />
 
           <label for="phone">Téléphone</label>
-          <input id="phone" name="phone"
-                 [(ngModel)]="form.phone" />
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            [(ngModel)]="form.phone"
+          />
 
-          <label for="website">Site actuel</label>
-          <input id="website" name="website"
-                 [(ngModel)]="form.website" />
+          <label for="website">Site internet actuel</label>
+          <input
+            id="website"
+            name="website"
+            [(ngModel)]="form.website"
+            placeholder="https://..."
+          />
         </section>
 
         <section class="panel">
           <h2>Suivi commercial</h2>
 
           <label for="status">Statut</label>
-          <select id="status" name="status"
-                  [(ngModel)]="form.status">
+          <select
+            id="status"
+            name="status"
+            [(ngModel)]="form.status"
+          >
             @for (status of statuses; track status) {
               <option [value]="status">{{ status }}</option>
             }
           </select>
 
           <label for="quote">Devis création (€)</label>
-          <input id="quote" name="creationQuote" type="number"
-                 [(ngModel)]="form.creationQuote" />
+          <input
+            id="quote"
+            name="creationQuote"
+            type="number"
+            min="0"
+            step="0.01"
+            [(ngModel)]="form.creationQuote"
+          />
 
           <label for="subscription">Abonnement mensuel (€)</label>
-          <input id="subscription" name="monthlySubscription"
-                 type="number"
-                 [(ngModel)]="form.monthlySubscription" />
+          <input
+            id="subscription"
+            name="monthlySubscription"
+            type="number"
+            min="0"
+            step="0.01"
+            [(ngModel)]="form.monthlySubscription"
+          />
 
           <label for="followup">Prochaine relance</label>
-          <input id="followup" name="nextFollowUp" type="date"
-                 [(ngModel)]="form.nextFollowUp" />
+          <input
+            id="followup"
+            name="nextFollowUp"
+            type="date"
+            [(ngModel)]="form.nextFollowUp"
+          />
 
           <label for="notes">Notes</label>
-          <textarea id="notes" name="notes" rows="5"
-                    [(ngModel)]="form.notes"></textarea>
+          <textarea
+            id="notes"
+            name="notes"
+            rows="5"
+            [(ngModel)]="form.notes"
+            placeholder="Besoins, échanges, informations utiles..."
+          ></textarea>
         </section>
 
+        @if (saveError()) {
+        <p class="error-message">{{ saveError() }}</p>
+        }
+
         <div class="form-actions">
-          <button type="button" class="secondary-btn"
-                  (click)="cancelEditing()">
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="cancelEditing()"
+          >
             Annuler
           </button>
-          <button type="submit" class="primary-btn">
-            Enregistrer
+
+          <button
+            type="submit"
+            class="primary-btn"
+            [disabled]="prospectForm.invalid || !form.name.trim() || saving()"
+          >
+            {{ saving()
+              ? 'Enregistrement...'
+              : isNew
+                ? 'Créer le prospect'
+                : 'Enregistrer' }}
           </button>
         </div>
+
       </form>
-    } @else {
+
+    } @else if (prospect(); as p) {
+
       <div class="detail-grid">
+
         <section class="panel">
           <h2>Informations générales</h2>
 
           <div class="field">
-            <span>Nom de la course</span>
+            <span>Nom</span>
             <strong>{{ p.name }}</strong>
           </div>
 
@@ -110,7 +216,7 @@
           </div>
 
           <div class="field">
-            <span>Site actuel</span>
+            <span>Site internet actuel</span>
             <strong>{{ p.website || 'Non renseigné' }}</strong>
           </div>
         </section>
@@ -138,17 +244,72 @@
             <strong>{{ p.nextFollowUp || 'Non planifiée' }}</strong>
           </div>
 
-          <div class="field">
+          <div class="field notes">
             <span>Notes</span>
             <p>{{ p.notes || 'Aucune note pour le moment.' }}</p>
           </div>
         </section>
+
       </div>
+
     }
+
   } @else {
+
     <section class="panel">
       <h2>Prospect introuvable</h2>
       <a routerLink="/prospects">Retour à la liste</a>
     </section>
+
   }
+
+
+@if (confirmDelete()) {
+  <div class="modal-overlay">
+
+    <section
+      class="confirmation-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-title"
+    >
+      <div class="warning-icon">!</div>
+
+      <h2 id="delete-title">Supprimer ce prospect ?</h2>
+
+      <p>
+        Tu es sur le point de supprimer
+        <strong>{{ prospect()?.name }}</strong>.
+        Cette action est irréversible.
+      </p>
+
+      @if (saveError()) {
+        <p class="error-message">{{ saveError() }}</p>
+      }
+
+      <div class="modal-actions">
+
+        <button
+          class="secondary-btn"
+          [disabled]="deleting()"
+          (click)="confirmDelete.set(false)"
+        >
+          Annuler
+        </button>
+
+        <button
+          class="danger-btn"
+          [disabled]="deleting()"
+          (click)="deleteProspect()"
+        >
+          {{ deleting() ? 'Suppression...' : 'Supprimer' }}
+        </button>
+
+      </div>
+    </section>
+
+  </div>
+}
+
+
 </div>

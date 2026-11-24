@@ -1,30 +1,24 @@
 
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-
-type ProspectStatus =
-  | 'À contacter'
-  | 'Contacté'
-  | 'À relancer'
-  | 'En discussion'
-  | 'Client';
-
-interface Prospect {
-  id: number;
-  name: string;
-  location: string;
-  email: string;
-  status: ProspectStatus;
-}
+import { RouterLink } from '@angular/router';
+import {
+  ProspectStatus,
+  ProspectsService
+} from '../../core/services/prospects';
 
 @Component({
   selector: 'app-prospects',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './prospects.html',
   styleUrl: './prospects.scss'
 })
 export class Prospects {
+  private readonly service = inject(ProspectsService);
+
+  readonly prospects = this.service.prospects;
+
   search = signal('');
   statusFilter = signal('Tous');
 
@@ -36,30 +30,6 @@ export class Prospects {
     'En discussion',
     'Client'
   ];
-
-  prospects = signal<Prospect[]>([
-    {
-      id: 1,
-      name: 'Trail des Volcans',
-      location: 'Auvergne',
-      email: 'contact@example.com',
-      status: 'À contacter'
-    },
-    {
-      id: 2,
-      name: 'Trail des Forêts',
-      location: 'Occitanie',
-      email: 'organisation@example.com',
-      status: 'Contacté'
-    },
-    {
-      id: 3,
-      name: 'Trail des Crêtes',
-      location: 'Rhône-Alpes',
-      email: 'trail@example.com',
-      status: 'À relancer'
-    }
-  ]);
 
   filteredProspects = computed(() => {
     const query = this.search().trim().toLowerCase();
@@ -78,11 +48,16 @@ export class Prospects {
     });
   });
 
-  updateStatus(id: number, status: ProspectStatus): void {
-    this.prospects.update(items =>
-      items.map(item =>
-        item.id === id ? { ...item, status } : item
-      )
-    );
+ async updateStatus(
+  id: number,
+  status: ProspectStatus
+): Promise<void> {
+  try {
+    await this.service.update(id, { status });
+  } catch (error) {
+    console.error(error);
+    alert('Impossible de modifier le statut.');
+    await this.service.load();
   }
+}
 }

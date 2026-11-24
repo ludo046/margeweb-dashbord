@@ -314,10 +314,48 @@
 
 </div>
 
+
 @if (prospect(); as currentProspect) {
   @if (!isNew && !editing()) {
-    <app-interaction-history
-      [prospectId]="currentProspect.id"
-    ></app-interaction-history>
+
+    <div class="mail-toolbar">
+
+      @if (mailMessage()) {
+        <div class="mail-message" role="status">
+          {{ mailMessage() }}
+
+          <button
+            aria-label="Fermer la notification"
+            (click)="mailMessage.set(null)"
+          >
+            ×
+          </button>
+        </div>
+      }
+
+      <button
+        class="primary-btn"
+        [disabled]="!currentProspect.email?.trim()"
+        (click)="mailOpen.set(true)"
+      >
+        ✉ Envoyer un e-mail
+      </button>
+
+    </div>
+
+    @for (version of [historyVersion()]; track version) {
+      <app-interaction-history
+        [prospectId]="currentProspect.id"
+      ></app-interaction-history>
+    }
+
+    @if (mailOpen()) {
+      <app-mail-composer
+        [prospect]="currentProspect"
+        (closed)="mailOpen.set(false)"
+        (sent)="onMailSent($event)"
+      ></app-mail-composer>
+    }
+
   }
 }

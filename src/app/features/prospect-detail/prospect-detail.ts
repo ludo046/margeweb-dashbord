@@ -8,11 +8,13 @@ import {
   ProspectsService
 } from '../../core/services/prospects';
 import { InteractionHistory } from './interaction-history/interaction-history';
+import { MailComposer } from './mail-composer/mail-composer';
+
 
 @Component({
   selector: 'app-prospect-detail',
   standalone: true,
-  imports: [FormsModule, RouterLink, InteractionHistory],
+  imports: [FormsModule, RouterLink, InteractionHistory, MailComposer],
   templateUrl: './prospect-detail.html',
   styleUrl: './prospect-detail.scss'
 })
@@ -60,6 +62,18 @@ export class ProspectDetail {
     'En discussion',
     'Client'
   ];
+
+
+readonly mailOpen = signal(false);
+readonly mailMessage = signal<string | null>(null);
+readonly historyVersion = signal(0);
+
+onMailSent(message: string): void {
+  this.mailOpen.set(false);
+  this.mailMessage.set(message);
+  this.historyVersion.update(value => value + 1);
+}
+
 
   startEditing(): void {
     const current = this.prospect();

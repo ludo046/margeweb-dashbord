@@ -19,6 +19,23 @@
     <p class="information error">{{ error() }}</p>
   } @else {
 
+    @if (urgentFollowUpCount() > 0) {
+  <div class="followup-alert">
+
+    <div>
+      <strong>
+        {{ urgentFollowUpCount() }} relance(s) à traiter
+      </strong>
+      <p>Des prospects attendent ton retour.</p>
+    </div>
+
+    <a routerLink="/follow-ups">
+      Voir les relances →
+    </a>
+
+  </div>
+}
+
     <div class="stats">
 
       <article class="stat-card">

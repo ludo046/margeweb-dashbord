@@ -1,5 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { inject } from '@angular/core';
+import { ProspectsService } from './core/services/prospects';
 
 @Component({
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
@@ -9,4 +11,8 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 })
 export class App {
   protected readonly title = signal('margeweb-crm');
+  private readonly prospectsService = inject(ProspectsService);
+
+  readonly urgentFollowUpCount =
+  this.prospectsService.urgentFollowUpCount;
 }

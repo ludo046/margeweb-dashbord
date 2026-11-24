@@ -7,11 +7,12 @@ import {
   ProspectStatus,
   ProspectsService
 } from '../../core/services/prospects';
+import { InteractionHistory } from './interaction-history/interaction-history';
 
 @Component({
   selector: 'app-prospect-detail',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, InteractionHistory],
   templateUrl: './prospect-detail.html',
   styleUrl: './prospect-detail.scss'
 })

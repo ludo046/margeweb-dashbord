@@ -28,6 +28,18 @@ export const routes: Routes = [
         .then(m => m.ProspectDetail)
   },
   {
+  path: 'pipeline',
+  loadComponent: () =>
+    import('./features/pipeline/pipeline')
+      .then(m => m.Pipeline)
+  },
+  {
+  path: 'follow-ups',
+  loadComponent: () =>
+    import('./features/follow-ups/follow-ups')
+      .then(m => m.FollowUps)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

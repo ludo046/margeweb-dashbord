@@ -5,6 +5,7 @@ const cors = require('cors');
 const { sequelize } = require('./models');
 const prospectRoutes = require('./routes/prospect.routes');
 const errorMiddleware = require('./middlewares/error.middleware');
+const interactionRoutes = require('./routes/interaction.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +25,10 @@ app.get('/api/health', (req, res) => {
 
 // Routes API
 app.use('/api/prospects', prospectRoutes);
+app.use(
+  '/api/prospects/:prospectId/interactions',
+  interactionRoutes
+);
 
 // Route introuvable
 app.use((req, res) => {

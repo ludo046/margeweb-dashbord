@@ -1,0 +1,186 @@
+
+<section class="history-panel">
+
+  <header class="history-header">
+    <div>
+      <h2>Historique des échanges</h2>
+      <p>{{ interactions().length }} interaction(s)</p>
+    </div>
+
+    <button
+      class="primary-btn"
+      [disabled]="saving() || formOpen()"
+      (click)="openForm()"
+    >
+      + Interaction
+    </button>
+  </header>
+
+  @if (error()) {
+    <p class="error-message">{{ error() }}</p>
+  }
+
+  @if (formOpen()) {
+
+    <form
+      class="interaction-form"
+      #interactionForm="ngForm"
+      (ngSubmit)="interactionForm.valid && save()"
+    >
+
+      <h3>
+        {{ editingId() !== null
+          ? 'Modifier un échange'
+          : 'Nouvel échange' }}
+      </h3>
+
+      <label for="interaction-type">
+        Type d'échange
+      </label>
+
+      <select
+        id="interaction-type"
+        name="type"
+        [(ngModel)]="draft.type"
+        required
+      >
+        @for (type of types; track type.value) {
+          <option [value]="type.value">
+            {{ type.label }}
+          </option>
+        }
+      </select>
+
+      <label for="interaction-subject">Sujet</label>
+
+      <input
+        id="interaction-subject"
+        name="subject"
+        [(ngModel)]="draft.subject"
+        placeholder="Ex : Proposition de création de site"
+        maxlength="255"
+        required
+      />
+
+      <label for="interaction-content">Contenu</label>
+
+      <textarea
+        id="interaction-content"
+        name="content"
+        [(ngModel)]="draft.content"
+        rows="5"
+        placeholder="Résumé de l'échange..."
+      ></textarea>
+
+      <div class="form-actions">
+
+        <button
+          type="button"
+          class="secondary-btn"
+          [disabled]="saving()"
+          (click)="cancel()"
+        >
+          Annuler
+        </button>
+
+        <button
+          type="submit"
+          class="primary-btn"
+          [disabled]="
+            saving() ||
+            interactionForm.invalid ||
+            !draft.subject.trim()
+          "
+        >
+          {{ saving()
+            ? 'Enregistrement...'
+            : 'Enregistrer' }}
+        </button>
+
+      </div>
+
+    </form>
+
+  }
+
+  @if (loading()) {
+
+    <p class="empty-state">Chargement de l'historique...</p>
+
+  } @else {
+
+    <div class="timeline">
+
+      @for (interaction of interactions();
+            track interaction.id) {
+
+        <article class="timeline-item">
+
+          <div
+            class="timeline-icon"
+            [style.color]="getType(interaction.type)?.color"
+            [style.background]="getType(interaction.type)?.color + '18'"
+          >
+            {{ getType(interaction.type)?.icon }}
+          </div>
+
+          <div class="timeline-content">
+
+            <div class="interaction-heading">
+
+              <span
+                class="interaction-type"
+                [style.color]="getType(interaction.type)?.color"
+              >
+                {{ getType(interaction.type)?.label }}
+              </span>
+
+              <time>
+                {{ interaction.occurredAt |
+                  date:'dd MMMM yyyy · HH:mm':undefined:'fr-FR' }}
+              </time>
+
+            </div>
+
+            <h3>{{ interaction.subject }}</h3>
+
+            @if (interaction.content) {
+              <p>{{ interaction.content }}</p>
+            }
+
+            <div class="interaction-actions">
+
+              <button
+                [disabled]="saving() || formOpen()"
+                (click)="edit(interaction)"
+              >
+                Modifier
+              </button>
+
+              <button
+                class="delete-btn"
+                [disabled]="saving() || formOpen()"
+                (click)="remove(interaction)"
+              >
+                Supprimer
+              </button>
+
+            </div>
+
+          </div>
+
+        </article>
+
+      } @empty {
+
+        <div class="empty-state">
+          Aucun échange enregistré pour ce prospect.
+        </div>
+
+      }
+
+    </div>
+
+  }
+
+</section>

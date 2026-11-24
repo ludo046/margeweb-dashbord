@@ -1,5 +1,5 @@
 
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -41,6 +41,26 @@ export class ProspectsService {
   readonly prospects = signal<Prospect[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+
+  readonly urgentFollowUps = computed(() => {
+  const now = new Date();
+
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0')
+  ].join('-');
+
+  return this.prospects().filter(p =>
+    p.status !== 'Client' &&
+    p.nextFollowUp &&
+    p.nextFollowUp <= today
+  );
+});
+
+readonly urgentFollowUpCount = computed(() =>
+  this.urgentFollowUps().length
+);
 
   constructor() {
     void this.load();
@@ -117,4 +137,24 @@ export class ProspectsService {
       items.filter(p => p.id !== id)
     );
   }
+
+
+async completeFollowUp(id: number): Promise<Prospect> {
+
+  const prospect = await firstValueFrom(
+    this.http.post<Prospect>(
+      `${this.apiUrl}/${id}/complete-follow-up`,
+      {}
+    )
+  );
+
+  this.prospects.update(items =>
+    items.map(p =>
+      p.id === id ? prospect : p
+    )
+  );
+
+  return prospect;
+}
+
 }

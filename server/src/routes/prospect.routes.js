@@ -9,5 +9,6 @@ router.get('/:id', controller.findOne);
 router.post('/', controller.create);
 router.patch('/:id', controller.update);
 router.delete('/:id', controller.remove);
+router.post('/:id/complete-follow-up',controller.completeFollowUp);
 
 module.exports = router;

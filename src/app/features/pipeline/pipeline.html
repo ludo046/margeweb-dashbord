@@ -1,1 +1,128 @@
-<p>pipeline works!</p>
+
+<div class="pipeline-page">
+
+  <header class="page-heading">
+    <div>
+      <span class="eyebrow">GESTION COMMERCIALE</span>
+      <h1>Pipeline commercial</h1>
+      <p>Visualise et organise tes opportunités.</p>
+    </div>
+
+    <a routerLink="/prospects/new" class="primary-btn">
+      + Nouveau prospect
+    </a>
+  </header>
+
+  @if (error()) {
+    <p class="error-message">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Chargement des prospects...</p>
+  } @else if (loadError()) {
+    <p class="error-message">{{ loadError() }}</p>
+  } @else {
+
+    <div class="kanban-board" cdkDropListGroup>
+
+      @for (column of columns(); track column.status) {
+
+        <section class="kanban-column">
+
+          <header
+            class="column-header"
+            [style.border-top-color]="column.color"
+          >
+            <div class="column-title">
+              <span
+                class="status-dot"
+                [style.background]="column.color"
+              ></span>
+
+              <h2>{{ column.status }}</h2>
+            </div>
+
+            <span class="column-count">
+              {{ column.prospects.length }}
+            </span>
+          </header>
+
+          <div
+            class="column-content"
+            cdkDropList
+            [cdkDropListData]="column.prospects"
+            [cdkDropListSortingDisabled]="true"
+            (cdkDropListDropped)="drop($event, column.status)"
+          >
+
+            @for (prospect of column.prospects; track prospect.id) {
+
+              <article
+                class="prospect-card"
+                cdkDrag
+                [cdkDragData]="prospect"
+                [cdkDragDisabled]="moving()"
+              >
+
+                <a
+                  class="prospect-name"
+                  [routerLink]="['/prospects', prospect.id]"
+                >
+                  {{ prospect.name }}
+                </a>
+
+                <p class="location">
+                  {{ prospect.location || 'Non renseignée' }}
+                </p>
+
+                @if (prospect.creationQuote != null ||
+                     prospect.monthlySubscription != null) {
+
+                  <div class="card-financial">
+
+                    @if (prospect.creationQuote != null) {
+                      <div>
+                        <small>Création</small>
+                        <strong>{{ prospect.creationQuote }} €</strong>
+                      </div>
+                    }
+
+                    @if (prospect.monthlySubscription != null) {
+                      <div>
+                        <small>Abonnement</small>
+                        <strong>
+                          {{ prospect.monthlySubscription }} €/m
+                        </strong>
+                      </div>
+                    }
+
+                  </div>
+                }
+
+                @if (prospect.nextFollowUp) {
+                  <div class="followup">
+                    Relance : {{ prospect.nextFollowUp }}
+                  </div>
+                }
+
+              </article>
+
+            } @empty {
+
+              <div class="empty-column">
+                Aucun prospect
+              </div>
+
+            }
+
+          </div>
+
+        </section>
+
+      }
+
+    </div>
+
+  }
+
+</div>

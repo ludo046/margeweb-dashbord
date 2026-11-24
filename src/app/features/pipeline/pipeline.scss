@@ -1,0 +1,210 @@
+
+$navy: #111d35;
+$accent: #15b8a6;
+$muted: #8190a6;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+
+  h1 {
+    margin: 8px 0;
+    color: $navy;
+    font-size: 32px;
+  }
+
+  p {
+    margin: 0;
+    color: $muted;
+  }
+}
+
+.eyebrow {
+  color: $accent;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.primary-btn {
+  padding: 13px 20px;
+  background: $accent;
+  color: $navy;
+  border-radius: 9px;
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(240px, 1fr));
+  align-items: start;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 20px;
+}
+
+.kanban-column {
+  min-width: 0;
+  border-radius: 12px;
+  background: #e8edf4;
+  overflow: hidden;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 14px;
+  border-top: 4px solid;
+  background: #fff;
+}
+
+.column-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  h2 {
+    margin: 0;
+    color: $navy;
+    font-size: 14px;
+  }
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.column-count {
+  background: #edf1f7;
+  padding: 5px 9px;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.column-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 400px;
+  padding: 12px;
+}
+
+.prospect-card {
+  padding: 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 3px 8px #17243b08;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:hover {
+    border-color: $accent;
+  }
+}
+
+.prospect-name {
+  color: $navy;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+
+  &:hover {
+    color: #087f73;
+  }
+}
+
+.location {
+  margin: 7px 0 12px;
+  color: $muted;
+  font-size: 12px;
+}
+
+.card-financial {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #edf1f7;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  small {
+    color: $muted;
+    font-size: 10px;
+  }
+
+  strong {
+    color: #087f73;
+    font-size: 13px;
+  }
+}
+
+.followup {
+  margin-top: 12px;
+  padding: 7px 9px;
+  background: #fff7e6;
+  color: #a16207;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.empty-column {
+  padding: 25px 10px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 9px;
+  color: $muted;
+  font-size: 12px;
+  text-align: center;
+}
+
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px #111d3530;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.25;
+}
+
+.cdk-drop-list-dragging {
+  background: #dce8ed;
+}
+
+.error-message {
+  color: #dc3545;
+}
+
+@media (max-width: 700px) {
+  .page-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

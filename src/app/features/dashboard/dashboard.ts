@@ -121,6 +121,9 @@ export class Dashboard {
     }
   ]);
 
+  readonly urgentFollowUpCount =
+  this.service.urgentFollowUpCount;
+
   refresh(): void {
     void this.service.load();
   }

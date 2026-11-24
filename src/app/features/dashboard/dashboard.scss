@@ -270,3 +270,35 @@ $muted: #8190a6;
     flex-wrap: wrap;
   }
 }
+
+.followup-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 20px;
+  margin-bottom: 24px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #f59e0b;
+  border-radius: 12px;
+
+  strong {
+    color: #9a3412;
+    font-size: 15px;
+  }
+
+  p {
+    margin: 6px 0 0;
+    color: #b45309;
+    font-size: 13px;
+  }
+
+  a {
+    color: #9a3412;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+  }
+}

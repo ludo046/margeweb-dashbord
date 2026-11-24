@@ -23,8 +23,18 @@
         ♙ Prospects
       </a>
 
-      <a class="disabled">▤ Pipeline</a>
-      <a class="disabled">◷ Relances</a>
+      <a routerLink="/pipeline" routerLinkActive="active">
+      ▤ Pipeline
+      </a>
+      <a routerLink="/follow-ups" routerLinkActive="active">
+        <span>◷ Relances</span>
+
+        @if (urgentFollowUpCount() > 0) {
+          <span class="notification-count">
+            {{ urgentFollowUpCount() }}
+          </span>
+        }
+      </a>
       <a class="disabled">♧ Clients</a>
       <a class="disabled">▣ Abonnements</a>
     </nav>

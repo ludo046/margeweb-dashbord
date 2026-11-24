@@ -1,5 +1,5 @@
 
-const { Prospect } = require('../models');
+const { sequelize, Prospect, Interaction } = require('../models');
 
 const allowedFields = [
   'name',
@@ -87,39 +87,182 @@ exports.create = async (req, res, next) => {
 };
 
 // Modifier un prospect
+
 exports.update = async (req, res, next) => {
   try {
-    const prospect = await Prospect.findByPk(req.params.id);
+    const result = await sequelize.transaction(async transaction => {
 
-    if (!prospect) {
+      const prospect = await Prospect.findByPk(
+        req.params.id,
+        { transaction }
+      );
+
+      if (!prospect) {
+        return null;
+      }
+
+      const previousStatus = prospect.status;
+      const previousFollowUp = prospect.nextFollowUp;
+
+      const changes = sanitizeData(req.body);
+
+      await prospect.update(changes, { transaction });
+
+      // Historique des changements de statut
+      if (previousStatus !== prospect.status) {
+
+        await Interaction.create({
+          prospectId: prospect.id,
+          type: 'status_change',
+          subject: `${previousStatus} → ${prospect.status}`,
+          content: 'Statut commercial mis à jour.'
+        }, { transaction });
+
+      }
+
+      // Historique des dates de relance
+      if (previousFollowUp !== prospect.nextFollowUp) {
+
+        let subject;
+        let content;
+
+        if (!previousFollowUp && prospect.nextFollowUp) {
+
+          subject = 'Relance programmée';
+          content = `Nouvelle relance prévue le ${prospect.nextFollowUp}.`;
+
+        } else if (previousFollowUp && prospect.nextFollowUp) {
+
+          subject = 'Relance reportée';
+          content = `Date modifiée : ${previousFollowUp} → ${prospect.nextFollowUp}.`;
+
+        } else {
+
+          subject = 'Relance retirée';
+          content = `La relance prévue le ${previousFollowUp} a été retirée.`;
+
+        }
+
+        await Interaction.create({
+          prospectId: prospect.id,
+          type: 'follow_up',
+          subject,
+          content
+        }, { transaction });
+
+      }
+
+      return prospect;
+
+    });
+
+    if (!result) {
       return res.status(404).json({
-        message: 'Prospect introuvable'
+        message: 'Prospect introuvable.'
       });
     }
 
-    await prospect.update(sanitizeData(req.body));
+    res.json(result);
 
-    res.json(prospect);
   } catch (error) {
     next(error);
   }
 };
 
-// Supprimer un prospect
+
+exports.completeFollowUp = async (req, res, next) => {
+  try {
+    const result = await sequelize.transaction(async transaction => {
+
+      const prospect = await Prospect.findByPk(
+        req.params.id,
+        { transaction }
+      );
+
+      if (!prospect) {
+        return { status: 404 };
+      }
+
+      if (!prospect.nextFollowUp) {
+        return { status: 409 };
+      }
+
+      const previousStatus = prospect.status;
+      const previousDate = prospect.nextFollowUp;
+
+      const newStatus = [
+        'À contacter',
+        'À relancer'
+      ].includes(previousStatus)
+        ? 'Contacté'
+        : previousStatus;
+
+      await prospect.update({
+        nextFollowUp: null,
+        status: newStatus
+      }, { transaction });
+
+      await Interaction.create({
+        prospectId: prospect.id,
+        type: 'follow_up',
+        subject: 'Relance effectuée',
+        content: `Relance initialement prévue le ${previousDate}.`
+      }, { transaction });
+
+      if (previousStatus !== newStatus) {
+
+        await Interaction.create({
+          prospectId: prospect.id,
+          type: 'status_change',
+          subject: `${previousStatus} → ${newStatus}`,
+          content: 'Statut mis à jour après une relance.'
+        }, { transaction });
+
+      }
+
+      return {
+        status: 200,
+        prospect
+      };
+
+    });
+
+    if (result.status === 404) {
+      return res.status(404).json({
+        message: 'Prospect introuvable.'
+      });
+    }
+
+    if (result.status === 409) {
+      return res.status(409).json({
+        message: 'Aucune relance programmée.'
+      });
+    }
+
+    res.json(result.prospect);
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 exports.remove = async (req, res, next) => {
   try {
     const prospect = await Prospect.findByPk(req.params.id);
 
     if (!prospect) {
       return res.status(404).json({
-        message: 'Prospect introuvable'
+        message: 'Prospect introuvable.'
       });
     }
 
     await prospect.destroy();
 
     res.status(204).send();
+
   } catch (error) {
     next(error);
   }
 };
+

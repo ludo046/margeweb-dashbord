@@ -313,3 +313,11 @@
 
 
 </div>
+
+@if (prospect(); as currentProspect) {
+  @if (!isNew && !editing()) {
+    <app-interaction-history
+      [prospectId]="currentProspect.id"
+    ></app-interaction-history>
+  }
+}

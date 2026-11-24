@@ -1,0 +1,321 @@
+
+<div class="follow-ups-page">
+
+  <header class="page-heading">
+    <span class="eyebrow">SUIVI COMMERCIAL</span>
+    <h1>Relances</h1>
+    <p>Ne laisse passer aucune opportunité commerciale.</p>
+  </header>
+
+  @if (loading()) {
+    <p>Chargement des relances...</p>
+  } @else if (loadError()) {
+    <p class="error-message">{{ loadError() }}</p>
+  } @else {
+
+    <div class="stats">
+
+      <article class="stat-card overdue">
+        <span>En retard</span>
+        <strong>{{ overdue().length }}</strong>
+        <small>À traiter en priorité</small>
+      </article>
+
+      <article class="stat-card today">
+        <span>Aujourd'hui</span>
+        <strong>{{ dueToday().length }}</strong>
+        <small>Relances prévues ce jour</small>
+      </article>
+
+      <article class="stat-card upcoming">
+        <span>À venir</span>
+        <strong>{{ upcoming().length }}</strong>
+        <small>Relances programmées</small>
+      </article>
+
+    </div>
+
+
+<section class="calendar-panel">
+
+  <header class="calendar-header">
+
+    <div>
+      <h2>Calendrier des relances</h2>
+      <p>Planifie ton suivi commercial.</p>
+    </div>
+
+    <div class="calendar-navigation">
+
+      <button
+        class="calendar-btn"
+        aria-label="Mois précédent"
+        (click)="changeMonth(-1)"
+      >
+        ‹
+      </button>
+
+      <strong>{{ monthLabel() }}</strong>
+
+      <button
+        class="calendar-btn"
+        aria-label="Mois suivant"
+        (click)="changeMonth(1)"
+      >
+        ›
+      </button>
+
+      <button
+        class="secondary-btn"
+        (click)="goToToday()"
+      >
+        Aujourd'hui
+      </button>
+
+    </div>
+
+  </header>
+
+  <div class="calendar-scroll">
+
+    <div class="calendar-grid">
+
+      @for (day of weekDays; track day) {
+        <div class="weekday">{{ day }}</div>
+      }
+
+      @for (day of calendarDays(); track day.date) {
+
+        <button
+          type="button"
+          class="calendar-day"
+          [class.outside-month]="!day.inMonth"
+          [class.current-day]="day.isToday"
+          [class.selected-day]="selectedDay() === day.date"
+          [attr.aria-label]="day.date + ' : ' + day.prospects.length + ' relances'"
+          [attr.aria-pressed]="selectedDay() === day.date"
+          (click)="selectDay(day.date)"
+        >
+
+          <span class="day-number">{{ day.day }}</span>
+
+          @for (prospect of day.prospects.slice(0, 2);
+                track prospect.id) {
+
+            <span
+              class="calendar-event"
+              [class.event-overdue]="day.isOverdue"
+              [class.event-today]="day.isToday"
+            >
+              {{ prospect.name }}
+            </span>
+
+          }
+
+          @if (day.prospects.length > 2) {
+            <span class="more-events">
+              + {{ day.prospects.length - 2 }} autres
+            </span>
+          }
+
+        </button>
+
+      }
+
+    </div>
+
+  </div>
+
+  <div class="calendar-legend">
+    <span><i class="legend-dot red"></i> En retard</span>
+    <span><i class="legend-dot orange"></i> Aujourd'hui</span>
+    <span><i class="legend-dot green"></i> À venir</span>
+  </div>
+
+  @if (selectedDay(); as date) {
+
+    <div class="selected-day-panel">
+
+      <h3>
+        {{ date | date:'EEEE dd MMMM yyyy':undefined:'fr-FR' }}
+      </h3>
+
+      @for (prospect of selectedDayProspects();
+            track prospect.id) {
+
+        <article class="follow-up-row">
+
+          <div class="prospect-avatar">
+            {{ prospect.name.charAt(0).toUpperCase() }}
+          </div>
+
+          <div class="prospect-info">
+            <a [routerLink]="['/prospects', prospect.id]">
+              {{ prospect.name }}
+            </a>
+            <small>{{ prospect.email }}</small>
+          </div>
+
+          <div class="actions">
+
+            <button
+              class="secondary-btn"
+              [disabled]="saving()"
+              (click)="openReschedule(prospect)"
+            >
+              Reporter
+            </button>
+
+            <button
+              class="primary-btn"
+              [disabled]="saving()"
+              (click)="complete(prospect)"
+            >
+              ✓ Effectuée
+            </button>
+
+          </div>
+
+        </article>
+
+      } @empty {
+        <p class="empty-state">
+          Aucune relance prévue ce jour.
+        </p>
+      }
+
+    </div>
+
+  }
+
+</section>
+
+
+    @if (error() && !selectedProspect()) {
+      <p class="error-message">{{ error() }}</p>
+    }
+
+    @for (group of groups(); track group.type) {
+
+      <section class="follow-up-section">
+
+        <header class="section-heading">
+          <span class="indicator" [class]="group.type"></span>
+          <h2>{{ group.title }}</h2>
+          <span class="count">{{ group.prospects.length }}</span>
+        </header>
+
+        @for (prospect of group.prospects; track prospect.id) {
+
+          <article class="follow-up-row">
+
+            <div class="prospect-avatar">
+              {{ prospect.name.charAt(0).toUpperCase() }}
+            </div>
+
+            <div class="prospect-info">
+              <a [routerLink]="['/prospects', prospect.id]">
+                {{ prospect.name }}
+              </a>
+              <small>{{ prospect.location }}</small>
+              <small>{{ prospect.email }}</small>
+            </div>
+
+            <div class="date-info">
+              <span>Date de relance</span>
+              <strong>
+                {{ prospect.nextFollowUp | date:'dd MMMM yyyy':undefined:'fr-FR' }}
+              </strong>
+            </div>
+
+            <div class="actions">
+
+              <button
+                class="secondary-btn"
+                [disabled]="saving()"
+                (click)="openReschedule(prospect)"
+              >
+                Reporter
+              </button>
+
+              <button
+                class="primary-btn"
+                [disabled]="saving()"
+                (click)="complete(prospect)"
+              >
+                ✓ Effectuée
+              </button>
+
+            </div>
+
+          </article>
+
+        } @empty {
+
+          <div class="empty-state">
+            Aucune relance dans cette catégorie.
+          </div>
+
+        }
+
+      </section>
+
+    }
+
+  }
+
+</div>
+
+@if (selectedProspect(); as prospect) {
+
+  <div class="modal-overlay">
+
+    <section
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reschedule-title"
+    >
+
+      <h2 id="reschedule-title">Reporter la relance</h2>
+      <p>{{ prospect.name }}</p>
+
+      <label for="new-date">Nouvelle date</label>
+
+      <input
+        id="new-date"
+        type="date"
+        [ngModel]="newDate()"
+        (ngModelChange)="newDate.set($event)"
+        [min]="today()"
+      />
+
+      @if (error()) {
+        <p class="error-message">{{ error() }}</p>
+      }
+
+      <div class="actions">
+
+        <button
+          class="secondary-btn"
+          [disabled]="saving()"
+          (click)="closeModal()"
+        >
+          Annuler
+        </button>
+
+        <button
+          class="primary-btn"
+          [disabled]="saving() || !newDate() || newDate() < today()"
+          (click)="reschedule()"
+        >
+          {{ saving() ? 'Enregistrement...' : 'Confirmer' }}
+        </button>
+
+      </div>
+
+    </section>
+
+  </div>
+
+}

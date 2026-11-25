@@ -14,20 +14,20 @@
         routerLink="/"
         routerLinkActive="active"
         [routerLinkActiveOptions]="{ exact: true }">
-        ◫ Tableau de bord
+        <span class="icon">📅</span> Tableau de bord
       </a>
 
       <a
         routerLink="/prospects"
         routerLinkActive="active">
-        ♙ Prospects
+        <span class="icon">♟️</span> Prospects
       </a>
 
       <a routerLink="/pipeline" routerLinkActive="active">
-      ▤ Pipeline
+      <span class="icon">📊</span> Pipeline
       </a>
       <a routerLink="/follow-ups" routerLinkActive="active">
-        <span>◷ Relances</span>
+        <span><span class="icon">⏰</span> Relances</span>
 
         @if (urgentFollowUpCount() > 0) {
           <span class="notification-count">
@@ -36,7 +36,7 @@
         }
       </a>
       <a routerLink="/messaging" routerLinkActive="active">
-        Messagerie
+       <span class="icon">📨</span> Messagerie
 
         @if (unreadEmailCount() > 0) {
           <span class="notification-count">
@@ -44,8 +44,8 @@
           </span>
         }
       </a>
-      <a class="disabled">♧ Clients</a>
-      <a class="disabled">▣ Abonnements</a>
+      <a class="disabled"><span class="icon">🤝</span> Clients</a>
+      <a class="disabled"><span class="icon">🔄</span> Abonnements</a>
     </nav>
 
     <div class="sidebar-footer">

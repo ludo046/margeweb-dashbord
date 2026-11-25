@@ -1,95 +1,181 @@
+import {
+  Component,
+  computed,
+  inject
+} from '@angular/core';
 
-import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CurrencyPipe } from '@angular/common';
-import { ProspectsService } from '../../core/services/prospects';
+
+import {
+  ProspectsService
+} from '../../core/services/prospects';
+
+import {
+  ClientsService
+} from '../../core/services/clients';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, CurrencyPipe],
+  imports: [
+    RouterLink,
+    CurrencyPipe
+  ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
 export class Dashboard {
-  private readonly service = inject(ProspectsService);
 
-  readonly prospects = this.service.prospects;
-  readonly loading = this.service.loading;
-  readonly error = this.service.error;
+  private readonly service = inject(ProspectsService);
+  private readonly clientsService = inject(ClientsService);
+
+  readonly loading = computed(() =>
+    this.service.loading() ||
+    this.clientsService.loading()
+  );
+
+  readonly error = computed(() =>
+    this.service.error() ||
+    this.clientsService.error()
+  );
+
+  // Clients
+
+  readonly allClients = this.clientsService.clients;
+
+  readonly clients = computed(() =>
+    this.allClients().filter(
+      client => client.status === 'Actif'
+    ).length
+  );
+
+  readonly inactiveClients = computed(() =>
+    this.allClients().filter(
+      client => client.status === 'Inactif'
+    ).length
+  );
+
+  readonly archivedClients = computed(() =>
+    this.allClients().filter(
+      client => client.status === 'Archivé'
+    ).length
+  );
+
+  // Prospects convertis
+
+  readonly convertedProspectIds = computed(() =>
+    new Set(
+      this.allClients()
+        .map(client => client.prospectId)
+        .filter((id): id is number => typeof id === 'number')
+    )
+  );
+
+  readonly convertedProspects = computed(() =>
+    this.convertedProspectIds().size
+  );
+
+  // Prospects non convertis
+
+  readonly prospects = computed(() =>
+    this.service.prospects().filter(
+      prospect =>
+        !this.convertedProspectIds().has(prospect.id)
+    )
+  );
+
+  // Anciennes conversions à finaliser
+
+  readonly pendingConversions = computed(() =>
+    this.prospects().filter(
+      prospect => prospect.status === 'Client'
+    )
+  );
+
+  // Opportunités commerciales
+
+  readonly commercialProspects = computed(() =>
+    this.prospects().filter(
+      prospect => prospect.status !== 'Client'
+    )
+  );
 
   readonly totalProspects = computed(() =>
     this.prospects().length
   );
 
+  readonly totalOpportunities = computed(() =>
+    this.commercialProspects().length
+  );
+
   readonly contacted = computed(() =>
-    this.prospects().filter(p =>
-      ['Contacté', 'À relancer', 'En discussion', 'Client']
-        .includes(p.status)
+    this.commercialProspects().filter(
+      prospect =>
+        ['Contacté', 'À relancer', 'En discussion']
+          .includes(prospect.status)
     ).length
   );
 
   readonly toContact = computed(() =>
-    this.prospects().filter(p =>
-      p.status === 'À contacter'
+    this.commercialProspects().filter(
+      prospect => prospect.status === 'À contacter'
     ).length
   );
 
   readonly toFollowUp = computed(() =>
-    this.prospects().filter(p =>
-      p.status === 'À relancer'
+    this.commercialProspects().filter(
+      prospect => prospect.status === 'À relancer'
     ).length
   );
 
   readonly discussions = computed(() =>
-    this.prospects().filter(p =>
-      p.status === 'En discussion'
+    this.commercialProspects().filter(
+      prospect => prospect.status === 'En discussion'
     ).length
   );
 
-  readonly clients = computed(() =>
-    this.prospects().filter(p =>
-      p.status === 'Client'
-    ).length
-  );
-
-  readonly monthlyRevenue = computed(() =>
-    this.prospects()
-      .filter(p => p.status === 'Client')
-      .reduce((total, p) =>
-        total + Number(p.monthlySubscription ?? 0), 0
-      )
-  );
+  // Potentiel financier
 
   readonly potentialRevenue = computed(() =>
-    this.prospects()
-      .filter(p => p.status !== 'Client')
-      .reduce((total, p) =>
-        total + Number(p.monthlySubscription ?? 0), 0
-      )
+    this.commercialProspects().reduce(
+      (total, prospect) =>
+        total + Number(prospect.monthlySubscription ?? 0),
+      0
+    )
   );
 
   readonly potentialQuotes = computed(() =>
-    this.prospects()
-      .filter(p => p.status !== 'Client')
-      .reduce((total, p) =>
-        total + Number(p.creationQuote ?? 0), 0
-      )
+    this.commercialProspects().reduce(
+      (total, prospect) =>
+        total + Number(prospect.creationQuote ?? 0),
+      0
+    )
   );
 
-  readonly conversionRate = computed(() =>
-    this.totalProspects() === 0
+  // Taux de conversion
+
+  readonly conversionRate = computed(() => {
+
+    const converted = this.convertedProspects();
+
+    const total = this.totalProspects() + converted;
+
+    return total === 0
       ? 0
-      : Math.round(
-          this.clients() / this.totalProspects() * 100
-        )
-  );
+      : Math.round(converted / total * 100);
+
+  });
+
+  // Derniers prospects
 
   readonly recentProspects = computed(() =>
     [...this.prospects()]
       .sort((a, b) => b.id - a.id)
       .slice(0, 5)
   );
+
+  // Pipeline commercial
 
   readonly pipeline = computed(() => [
     {
@@ -99,8 +185,8 @@ export class Dashboard {
     },
     {
       label: 'Contacté',
-      count: this.prospects().filter(
-        p => p.status === 'Contacté'
+      count: this.commercialProspects().filter(
+        prospect => prospect.status === 'Contacté'
       ).length,
       color: '#3b82f6'
     },
@@ -113,18 +199,40 @@ export class Dashboard {
       label: 'En discussion',
       count: this.discussions(),
       color: '#8b5cf6'
-    },
-    {
-      label: 'Client',
-      count: this.clients(),
-      color: '#15b8a6'
     }
   ]);
 
-  readonly urgentFollowUpCount =
-  this.service.urgentFollowUpCount;
+  // Relances urgentes
 
-  refresh(): void {
-    void this.service.load();
+  readonly urgentFollowUpCount = computed(() => {
+
+    const now = new Date();
+
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0')
+    ].join('-');
+
+    return this.commercialProspects().filter(
+      prospect =>
+        prospect.nextFollowUp &&
+        prospect.nextFollowUp <= today
+    ).length;
+
+  });
+
+  constructor() {
+    void this.refresh();
   }
+
+  async refresh(): Promise<void> {
+
+    await Promise.all([
+      this.service.load(),
+      this.clientsService.load()
+    ]);
+
+  }
+
 }

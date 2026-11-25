@@ -1,17 +1,20 @@
-
 const express = require('express');
 const cors = require('cors');
 
 const { sequelize } = require('./models');
 
+const runMigrations = require('./migrations');
+
 const prospectRoutes = require('./routes/prospect.routes');
 const interactionRoutes = require('./routes/interaction.routes');
 const emailRoutes = require('./routes/email.routes');
 const draftRoutes = require('./routes/draft.routes');
+const clientRoutes = require('./routes/client.routes');
 
 const errorMiddleware = require('./middlewares/error.middleware');
 
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
@@ -20,11 +23,15 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
+// Vérification de l'API
+
 app.get('/api/health', (req, res) => {
+
   res.json({
     success: true,
     message: 'MargeWeb CRM API opérationnelle'
   });
+
 });
 
 // Routes API
@@ -40,17 +47,23 @@ app.use('/api/emails', emailRoutes);
 
 app.use('/api/drafts', draftRoutes);
 
+app.use('/api/clients', clientRoutes);
+
 // Route introuvable
 
 app.use((req, res) => {
+
   res.status(404).json({
     message: 'Route introuvable'
   });
+
 });
 
 // Gestion centralisée des erreurs
 
 app.use(errorMiddleware);
+
+// Démarrage du serveur
 
 async function startServer() {
 
@@ -60,9 +73,18 @@ async function startServer() {
 
     console.log('Connexion SQLite réussie');
 
+    // Création des tables manquantes
+    // uniquement, sans modification destructive
+
     await sequelize.sync();
 
     console.log('Modèles Sequelize synchronisés');
+
+    // Application des migrations versionnées
+
+    await runMigrations();
+
+    // Démarrage de l'API
 
     app.listen(PORT, '127.0.0.1', () => {
 

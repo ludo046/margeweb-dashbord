@@ -1,152 +1,431 @@
-
 <div class="dashboard">
 
   <header class="topbar">
+
     <div>
+
       <span class="eyebrow">MARGEWEB CRM</span>
+
       <h1>Tableau de bord</h1>
+
       <p>Vue d'ensemble de ton activité commerciale.</p>
+
     </div>
 
-    <button class="refresh-btn" (click)="refresh()">
-      ↻ Actualiser
+    <button
+      type="button"
+      class="refresh-btn"
+      [disabled]="loading()"
+      (click)="refresh()">
+
+      {{ loading() ? 'Chargement...' : '↻ Actualiser' }}
+
     </button>
+
   </header>
 
   @if (loading()) {
-    <p class="information">Chargement des données...</p>
+
+    <p class="information">
+      Chargement des données...
+    </p>
+
   } @else if (error()) {
-    <p class="information error">{{ error() }}</p>
-  } @else {
 
-    @if (urgentFollowUpCount() > 0) {
-  <div class="followup-alert">
+    <div class="information error">
 
-    <div>
       <strong>
-        {{ urgentFollowUpCount() }} relance(s) à traiter
+        Impossible de charger le tableau de bord.
       </strong>
-      <p>Des prospects attendent ton retour.</p>
+
+      <p>{{ error() }}</p>
+
+      <button
+        type="button"
+        class="refresh-btn"
+        (click)="refresh()">
+
+        Réessayer
+
+      </button>
+
     </div>
 
-    <a routerLink="/follow-ups">
-      Voir les relances →
-    </a>
+  } @else {
 
-  </div>
-}
+    <!-- Relances urgentes -->
+
+    @if (urgentFollowUpCount() > 0) {
+
+      <div class="followup-alert">
+
+        <div>
+
+          <strong>
+            {{ urgentFollowUpCount() }} relance(s) à traiter
+          </strong>
+
+          <p>Des prospects attendent ton retour.</p>
+
+        </div>
+
+        <a routerLink="/follow-ups">
+          Voir les relances →
+        </a>
+
+      </div>
+
+    }
+
+    <!-- Conversions à finaliser -->
+
+    @if (pendingConversions().length > 0) {
+
+      <div class="followup-alert">
+
+        <div>
+
+          <strong>
+            {{ pendingConversions().length }}
+            conversion(s) à finaliser
+          </strong>
+
+          <p>
+            Certains prospects ne possèdent pas encore
+            de fiche client associée.
+          </p>
+
+        </div>
+
+        <a routerLink="/prospects">
+          Voir les prospects →
+        </a>
+
+      </div>
+
+    }
+
+    <!-- Indicateurs principaux -->
 
     <div class="stats">
 
-      <article class="stat-card">
+      <a
+        class="stat-card clickable"
+        routerLink="/prospects">
+
         <span>Prospects</span>
+
         <strong>{{ totalProspects() }}</strong>
+
         <small>{{ toContact() }} à contacter</small>
-      </article>
 
-      <article class="stat-card">
-        <span>Contacts effectués</span>
+      </a>
+
+      <a
+        class="stat-card clickable"
+        routerLink="/pipeline">
+
+        <span>Prospects contactés</span>
+
         <strong>{{ contacted() }}</strong>
-        <small>{{ toFollowUp() }} à relancer</small>
-      </article>
 
-      <article class="stat-card">
-        <span>Clients</span>
+        <small>{{ toFollowUp() }} à relancer</small>
+
+      </a>
+
+      <a
+        class="stat-card clickable"
+        routerLink="/clients">
+
+        <span>Clients actifs</span>
+
         <strong>{{ clients() }}</strong>
-        <small>{{ conversionRate() }} % de conversion</small>
-      </article>
+
+        <small>
+          {{ conversionRate() }} % de conversion
+        </small>
+
+      </a>
 
       <article class="stat-card accent">
-        <span>Revenu mensuel estimé</span>
-        <strong>
-          {{ monthlyRevenue() | currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
-        </strong>
-        <small>Abonnements clients</small>
+
+        <span>Revenu mensuel récurrent</span>
+
+        <strong>—</strong>
+
+        <small>Module Abonnements à venir</small>
+
       </article>
 
     </div>
+
+    <!-- Potentiel financier -->
 
     <div class="financial-grid">
 
       <article class="financial-card">
+
         <span>Potentiel de création de sites</span>
+
         <strong>
-          {{ potentialQuotes() | currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+          {{ potentialQuotes() |
+            currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
         </strong>
-        <small>Devis renseignés hors clients</small>
+
+        <small>
+          Montants estimés des opportunités commerciales
+        </small>
+
       </article>
 
       <article class="financial-card">
+
         <span>Abonnements potentiels</span>
+
         <strong>
-          {{ potentialRevenue() | currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+
+          {{ potentialRevenue() |
+            currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+
           <small>/ mois</small>
+
         </strong>
-        <small>Revenus récurrents potentiels</small>
+
+        <small>
+          Revenus récurrents non contractualisés
+        </small>
+
       </article>
 
     </div>
 
     <div class="dashboard-grid">
 
-      <section class="panel">
-        <h2>Pipeline commercial</h2>
-        <p>Répartition de tes opportunités.</p>
-
-        @for (stage of pipeline(); track stage.label) {
-          <div class="pipeline-stage">
-
-            <div class="stage-label">
-              <span>{{ stage.label }}</span>
-              <strong>{{ stage.count }}</strong>
-            </div>
-
-            <div class="progress-track">
-              <div
-                class="progress-fill"
-                [style.background]="stage.color"
-                [style.width.%]="totalProspects()
-                  ? stage.count / totalProspects() * 100
-                  : 0"
-              ></div>
-            </div>
-
-          </div>
-        }
-      </section>
+      <!-- Pipeline -->
 
       <section class="panel">
 
         <div class="panel-heading">
-          <h2>Derniers prospects</h2>
-          <a routerLink="/prospects">Tout voir →</a>
+
+          <h2>Pipeline commercial</h2>
+
+          <a routerLink="/pipeline">
+            Voir le pipeline →
+          </a>
+
         </div>
 
-        @for (prospect of recentProspects(); track prospect.id) {
-          <a
-            class="recent-prospect"
-            [routerLink]="['/prospects', prospect.id]"
-          >
-            <div class="prospect-avatar">
-              {{ prospect.name.charAt(0).toUpperCase() }}
+        <p>
+          Répartition de tes {{ totalOpportunities() }}
+          opportunité(s) commerciales.
+        </p>
+
+        @for (stage of pipeline(); track stage.label) {
+
+          <div class="pipeline-stage">
+
+            <div class="stage-label">
+
+              <span>{{ stage.label }}</span>
+
+              <strong>{{ stage.count }}</strong>
+
             </div>
 
-            <div class="prospect-info">
-              <strong>{{ prospect.name }}</strong>
-              <small>{{ prospect.location }}</small>
+            <div class="progress-track">
+
+              <div
+                class="progress-fill"
+                [style.background]="stage.color"
+                [style.width.%]="totalOpportunities()
+                  ? stage.count / totalOpportunities() * 100
+                  : 0">
+              </div>
+
             </div>
 
-            <span class="status">
-              {{ prospect.status }}
-            </span>
-          </a>
-        } @empty {
-          <p>Aucun prospect enregistré.</p>
+          </div>
+
         }
 
       </section>
 
+      <!-- Derniers prospects -->
+
+      <section class="panel">
+
+        <div class="panel-heading">
+
+          <h2>Derniers prospects</h2>
+
+          <a routerLink="/prospects">
+            Tout voir →
+          </a>
+
+        </div>
+
+        @for (
+          prospect of recentProspects();
+          track prospect.id
+        ) {
+
+          <a
+            class="recent-prospect"
+            [routerLink]="['/prospects', prospect.id]">
+
+            <div class="prospect-avatar">
+
+              {{ prospect.name.charAt(0).toUpperCase() }}
+
+            </div>
+
+            <div class="prospect-info">
+
+              <strong>{{ prospect.name }}</strong>
+
+              <small>
+                {{ prospect.location || 'Non renseignée' }}
+              </small>
+
+            </div>
+
+            <span
+              class="status"
+              [class.pending-status]="prospect.status === 'Client'">
+
+              {{ prospect.status === 'Client'
+                ? 'À convertir'
+                : prospect.status }}
+
+            </span>
+
+          </a>
+
+        } @empty {
+
+          <p>Aucun prospect enregistré.</p>
+
+        }
+
+      </section>
+
+      <!-- Portefeuille clients -->
+
+      <section class="panel client-panel">
+
+        <div class="panel-heading">
+
+          <h2>Portefeuille clients</h2>
+
+          <a routerLink="/clients">
+            Voir les clients →
+          </a>
+
+        </div>
+
+        <p>Répartition de tes clients par statut.</p>
+
+        <div class="client-summary">
+
+          <div class="client-stat">
+
+            <span class="client-dot active"></span>
+
+            <div>
+              <small>Actifs</small>
+              <strong>{{ clients() }}</strong>
+            </div>
+
+          </div>
+
+          <div class="client-stat">
+
+            <span class="client-dot inactive"></span>
+
+            <div>
+              <small>Inactifs</small>
+              <strong>{{ inactiveClients() }}</strong>
+            </div>
+
+          </div>
+
+          <div class="client-stat">
+
+            <span class="client-dot archived"></span>
+
+            <div>
+              <small>Archivés</small>
+              <strong>{{ archivedClients() }}</strong>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- Performance commerciale -->
+
+      <section class="panel">
+
+        <div class="panel-heading">
+
+          <h2>Performance commerciale</h2>
+
+        </div>
+
+        <p>Suivi de la transformation de tes prospects.</p>
+
+        <div class="conversion-summary">
+
+          <div class="conversion-rate">
+
+            <strong>{{ conversionRate() }} %</strong>
+
+            <span>Taux de conversion</span>
+
+          </div>
+
+          <div class="conversion-details">
+
+            <div>
+
+              <span>Prospects convertis</span>
+
+              <strong>{{ convertedProspects() }}</strong>
+
+            </div>
+
+            <div>
+
+              <span>Prospects non convertis</span>
+
+              <strong>{{ totalProspects() }}</strong>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="progress-track conversion-progress">
+
+          <div
+            class="progress-fill"
+            [style.width.%]="conversionRate()">
+          </div>
+
+        </div>
+
+        <p class="conversion-note">
+          Les clients créés manuellement sont exclus
+          du calcul du taux de conversion.
+        </p>
+
+      </section>
+
     </div>
+
   }
 
 </div>

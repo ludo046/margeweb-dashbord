@@ -33,27 +33,102 @@
       </div>
 
 
-@if (!editing()) {
+@if (!editing() && !isNew) {
+
   <div class="header-actions">
 
-    <button
-      class="danger-outline-btn"
-      (click)="confirmDelete.set(true)"
-    >
-      Supprimer
-    </button>
+    @if (linkedClient(); as client) {
+
+      <a
+        class="client-btn"
+        [routerLink]="['/clients', client.id]">
+
+        Voir la fiche client →
+
+      </a>
+
+    } @else if (clientsLoading()) {
+
+      <button class="secondary-btn" disabled>
+        Vérification...
+      </button>
+
+    } @else if (clientsError()) {
+
+      <button
+        class="secondary-btn"
+        (click)="refreshClients()">
+
+        Réessayer
+
+      </button>
+
+    } @else {
+
+      <button
+        class="convert-btn"
+        [disabled]="!canConvert()"
+        (click)="openConversion()">
+
+        Convertir en client
+
+      </button>
+
+      <button
+        class="danger-outline-btn"
+        [disabled]="converting() || deleting()"
+        (click)="confirmDelete.set(true)">
+
+        Supprimer
+
+      </button>
+
+    }
 
     <button
       class="primary-btn"
-      (click)="startEditing()"
-    >
+      [disabled]="converting() || deleting()"
+      (click)="startEditing()">
+
       Modifier la fiche
+
     </button>
 
   </div>
+
 }
 
     </header>
+
+    @if (linkedClient(); as client) {
+
+  @if (!editing()) {
+
+    <div class="client-banner">
+
+      <div class="client-banner-icon">✓</div>
+
+      <div class="client-banner-content">
+
+        <strong>Ce prospect est devenu client</strong>
+
+        <p>
+          Sa fiche client est disponible.
+          Son historique commercial et ses e-mails
+          sont conservés.
+        </p>
+
+      </div>
+
+      <a [routerLink]="['/clients', client.id]">
+        Accéder au client →
+      </a>
+
+    </div>
+
+  }
+
+}
 
     @if (editing() && draft; as form) {
 
@@ -358,4 +433,80 @@
     }
 
   }
+}
+
+@if (confirmConvert()) {
+
+  <div class="modal-overlay">
+
+    <section
+      class="confirmation-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="convert-title">
+
+      <div class="conversion-icon">✓</div>
+
+      <h2 id="convert-title">
+        Convertir en client ?
+      </h2>
+
+      <p>
+        Tu es sur le point de convertir
+        <strong>{{ prospect()?.name }}</strong>
+        en client MargeWeb.
+      </p>
+
+      <div class="conversion-summary">
+
+        <div>✓ Création de la fiche client</div>
+        <div>✓ Récupération des coordonnées</div>
+        <div>✓ Conservation de l'historique</div>
+        <div>✓ Conservation des e-mails</div>
+        <div>✓ Actualisation du statut commercial</div>
+        <div>✓ Annulation de la prochaine relance</div>
+
+      </div>
+
+      <p class="conversion-note">
+        Aucun abonnement, devis ou facture
+        ne sera créé automatiquement.
+      </p>
+
+      @if (conversionError()) {
+
+        <p class="error-message">
+          {{ conversionError() }}
+        </p>
+
+      }
+
+      <div class="modal-actions">
+
+        <button
+          class="secondary-btn"
+          [disabled]="converting()"
+          (click)="cancelConversion()">
+
+          Annuler
+
+        </button>
+
+        <button
+          class="convert-btn"
+          [disabled]="converting() || !canConvert()"
+          (click)="convertToClient()">
+
+          {{ converting()
+            ? 'Conversion en cours...'
+            : 'Confirmer la conversion' }}
+
+        </button>
+
+      </div>
+
+    </section>
+
+  </div>
+
 }

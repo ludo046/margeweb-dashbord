@@ -1,0 +1,774 @@
+<div class="client-detail">
+
+  <a routerLink="/clients" class="back-link">
+    ← Retour aux clients
+  </a>
+
+  @if (loading()) {
+
+    <div class="empty-state">
+      Chargement du client...
+    </div>
+
+  } @else {
+
+    @if (error()) {
+      <div class="error-message">
+        {{ error() }}
+      </div>
+    }
+
+    @if (success()) {
+      <div class="success-message">
+        {{ success() }}
+
+        <button
+          type="button"
+          aria-label="Fermer la notification"
+          (click)="success.set(null)">
+          ×
+        </button>
+      </div>
+    }
+
+    @if (isNew || client()) {
+
+      <!-- En-tête -->
+
+      <header class="detail-header">
+
+        <div class="client-identity">
+
+          <div class="avatar">
+            {{ isNew
+              ? '+'
+              : client()?.name?.charAt(0)?.toUpperCase() }}
+          </div>
+
+          <div>
+
+            <span class="eyebrow">
+              GESTION COMMERCIALE
+            </span>
+
+            <h2>
+              {{ isNew ? 'Nouveau client' : client()?.name }}
+            </h2>
+
+            @if (!isNew) {
+
+              <div class="client-meta">
+
+                <span class="status"
+                      [class.active]="client()?.status === 'Actif'"
+                      [class.inactive]="client()?.status === 'Inactif'"
+                      [class.archived]="client()?.status === 'Archivé'">
+
+                  {{ client()?.status }}
+
+                </span>
+
+                @if (client()?.clientSince) {
+                  <span>
+                    Client depuis le
+                    {{ client()?.clientSince
+                      | date:'dd MMMM yyyy':'':'fr-FR' }}
+                  </span>
+                }
+
+              </div>
+
+            } @else {
+
+              <p>Créer une nouvelle fiche client.</p>
+
+            }
+
+          </div>
+
+        </div>
+
+        @if (!isNew && !editing()) {
+
+          <div class="header-actions">
+
+            @if (client()?.status === 'Archivé') {
+
+              <button
+                class="secondary-btn"
+                [disabled]="saving()"
+                (click)="reactivateClient()">
+
+                Réactiver
+
+              </button>
+
+            } @else {
+
+              <button
+                class="danger-outline-btn"
+                (click)="confirmArchive.set(true)">
+
+                Archiver
+
+              </button>
+
+            }
+
+            <button
+              class="primary-btn"
+              [disabled]="saving() || archiving()"
+              (click)="startEditing()">
+
+              Modifier
+
+            </button>
+
+          </div>
+
+        }
+
+      </header>
+
+      <!-- Indicateurs financiers -->
+
+      @if (!isNew && !editing()) {
+
+        <div class="stats">
+
+          <div class="stat-card">
+            <span>Chiffre d'affaires</span>
+            <strong>—</strong>
+            <small>Module facturation à venir</small>
+          </div>
+
+          <div class="stat-card">
+            <span>Revenu mensuel</span>
+            <strong>—</strong>
+            <small>Module abonnements à venir</small>
+          </div>
+
+          <div class="stat-card">
+            <span>Factures en attente</span>
+            <strong>—</strong>
+            <small>Module facturation à venir</small>
+          </div>
+
+          <div class="stat-card">
+            <span>Abonnements actifs</span>
+            <strong>—</strong>
+            <small>Module abonnements à venir</small>
+          </div>
+
+        </div>
+
+      }
+
+      <!-- Formulaire -->
+
+      @if (editing()) {
+
+        <form
+          #clientForm="ngForm"
+          (ngSubmit)="clientForm.valid && save()">
+
+          <div class="detail-grid">
+
+            <section class="panel">
+
+              <h3>Informations générales</h3>
+
+              <div class="field">
+                <label for="name">Nom commercial *</label>
+
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  [(ngModel)]="draft.name"
+                  required
+                  placeholder="Nom du client"
+                />
+              </div>
+
+              <div class="field">
+                <label for="legalName">Raison sociale</label>
+
+                <input
+                  id="legalName"
+                  name="legalName"
+                  type="text"
+                  [(ngModel)]="draft.legalName"
+                  placeholder="Entreprise ou association"
+                />
+              </div>
+
+              <div class="field">
+                <label for="contactName">Nom du contact</label>
+
+                <input
+                  id="contactName"
+                  name="contactName"
+                  type="text"
+                  [(ngModel)]="draft.contactName"
+                />
+              </div>
+
+              <div class="field">
+                <label for="email">Adresse e-mail</label>
+
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  email
+                  [(ngModel)]="draft.email"
+                />
+              </div>
+
+              <div class="field">
+                <label for="phone">Téléphone</label>
+
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  [(ngModel)]="draft.phone"
+                />
+              </div>
+
+              <div class="field">
+                <label for="website">Site internet</label>
+
+                <input
+                  id="website"
+                  name="website"
+                  type="text"
+                  [(ngModel)]="draft.website"
+                  placeholder="https://"
+                />
+              </div>
+
+            </section>
+
+            <section class="panel">
+
+              <h3>Informations administratives</h3>
+
+              <div class="field">
+                <label for="siret">SIRET</label>
+
+                <input
+                  id="siret"
+                  name="siret"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="14"
+                  pattern="[0-9]{14}"
+                  [(ngModel)]="draft.siret"
+                />
+              </div>
+
+              <div class="field">
+                <label for="address">Adresse</label>
+
+                <input
+                  id="address"
+                  name="address"
+                  type="text"
+                  [(ngModel)]="draft.address"
+                />
+              </div>
+
+              <div class="field-row">
+
+                <div class="field">
+                  <label for="postalCode">Code postal</label>
+
+                  <input
+                    id="postalCode"
+                    name="postalCode"
+                    type="text"
+                    [(ngModel)]="draft.postalCode"
+                  />
+                </div>
+
+                <div class="field">
+                  <label for="city">Ville</label>
+
+                  <input
+                    id="city"
+                    name="city"
+                    type="text"
+                    [(ngModel)]="draft.city"
+                  />
+                </div>
+
+              </div>
+
+              <div class="field">
+                <label for="country">Pays</label>
+
+                <input
+                  id="country"
+                  name="country"
+                  type="text"
+                  [(ngModel)]="draft.country"
+                />
+              </div>
+
+              <div class="field">
+                <label for="status">Statut du client</label>
+
+                <select
+                  id="status"
+                  name="status"
+                  [(ngModel)]="draft.status">
+
+                  @for (status of statuses; track status) {
+                    <option [value]="status">
+                      {{ status }}
+                    </option>
+                  }
+
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="clientSince">Client depuis</label>
+
+                <input
+                  id="clientSince"
+                  name="clientSince"
+                  type="date"
+                  [(ngModel)]="draft.clientSince"
+                />
+              </div>
+
+            </section>
+
+          </div>
+
+          <section class="panel notes-panel">
+
+            <h3>Notes internes</h3>
+
+            <div class="field">
+
+              <textarea
+                name="notes"
+                aria-label="Notes internes"
+                rows="6"
+                [(ngModel)]="draft.notes"
+                placeholder="Informations complémentaires sur le client...">
+              </textarea>
+
+            </div>
+
+          </section>
+
+          <div class="form-actions">
+
+            <button
+              type="button"
+              class="secondary-btn"
+              [disabled]="saving()"
+              (click)="cancelEditing()">
+
+              Annuler
+
+            </button>
+
+            <button
+              type="submit"
+              class="primary-btn"
+              [disabled]="
+                clientForm.invalid ||
+                !draft.name.trim() ||
+                saving()
+              ">
+
+              {{ saving()
+                ? 'Enregistrement...'
+                : isNew
+                  ? 'Créer le client'
+                  : 'Enregistrer les modifications' }}
+
+            </button>
+
+          </div>
+
+        </form>
+
+      } @else if (client(); as currentClient) {
+
+        <!-- Navigation par onglets -->
+
+        <div class="tabs">
+
+          <button
+            [class.active]="activeTab() === 'information'"
+            (click)="activeTab.set('information')">
+
+            Informations
+
+          </button>
+
+          <button
+            [class.active]="activeTab() === 'history'"
+            (click)="activeTab.set('history')">
+
+            Historique
+
+          </button>
+
+          <button
+            [class.active]="activeTab() === 'subscriptions'"
+            (click)="activeTab.set('subscriptions')">
+
+            Abonnements
+
+          </button>
+
+          <button
+            [class.active]="activeTab() === 'quotes'"
+            (click)="activeTab.set('quotes')">
+
+            Devis
+
+          </button>
+
+          <button
+            [class.active]="activeTab() === 'invoices'"
+            (click)="activeTab.set('invoices')">
+
+            Factures
+
+          </button>
+
+        </div>
+
+        <!-- Contenu des onglets -->
+
+        @switch (activeTab()) {
+
+          @case ('information') {
+
+            <div class="detail-grid">
+
+              <section class="panel">
+
+                <h3>Informations générales</h3>
+
+                <div class="info-field">
+                  <span>Nom commercial</span>
+                  <strong>{{ currentClient.name }}</strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Raison sociale</span>
+                  <strong>
+                    {{ currentClient.legalName || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Contact principal</span>
+                  <strong>
+                    {{ currentClient.contactName || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Adresse e-mail</span>
+                  <strong>
+                    {{ currentClient.email || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Téléphone</span>
+                  <strong>
+                    {{ currentClient.phone || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Site internet</span>
+                  <strong>
+                    {{ currentClient.website || '—' }}
+                  </strong>
+                </div>
+
+              </section>
+
+              <section class="panel">
+
+                <h3>Informations administratives</h3>
+
+                <div class="info-field">
+                  <span>SIRET</span>
+                  <strong>
+                    {{ currentClient.siret || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Adresse</span>
+                  <strong>
+                    {{ currentClient.address || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Code postal</span>
+                  <strong>
+                    {{ currentClient.postalCode || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Ville</span>
+                  <strong>
+                    {{ currentClient.city || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Pays</span>
+                  <strong>
+                    {{ currentClient.country || '—' }}
+                  </strong>
+                </div>
+
+                <div class="info-field">
+                  <span>Client depuis</span>
+                  <strong>
+                    {{ currentClient.clientSince
+                      ? (currentClient.clientSince
+                        | date:'dd MMMM yyyy':'':'fr-FR')
+                      : '—' }}
+                  </strong>
+                </div>
+
+              </section>
+
+            </div>
+
+            <section class="panel notes-panel">
+
+              <h3>Notes internes</h3>
+
+              <p class="notes-content">
+                {{ currentClient.notes || 'Aucune note enregistrée.' }}
+              </p>
+
+            </section>
+
+            @if (currentClient.prospectId) {
+
+              <section class="panel origin-panel">
+
+                <div>
+
+                  <h3>Origine commerciale</h3>
+
+                  <p>
+                    Ce client provient de la conversion
+                    d'un prospect.
+                  </p>
+
+                </div>
+
+                <a
+                  class="secondary-btn"
+                  [routerLink]="[
+                    '/prospects',
+                    currentClient.prospectId
+                  ]">
+
+                  Consulter le prospect d'origine →
+
+                </a>
+
+              </section>
+
+            }
+
+          }
+
+          @case ('history') {
+
+            @if (currentClient.prospectId; as prospectId) {
+
+              <app-interaction-history
+                [prospectId]="prospectId">
+              </app-interaction-history>
+
+            } @else {
+
+              <section class="panel empty-state">
+
+                <div class="empty-icon">📋</div>
+
+                <h3>Historique commercial</h3>
+
+                <p>
+                  Ce client a été créé directement.
+                  L'historique indépendant des prospects
+                  sera disponible prochainement.
+                </p>
+
+              </section>
+
+            }
+
+          }
+
+          @case ('subscriptions') {
+
+            <section class="panel empty-state">
+
+              <div class="empty-icon">🔄</div>
+
+              <h3>Abonnements</h3>
+
+              <p>
+                Retrouvez prochainement les abonnements,
+                les échéances et les revenus récurrents
+                de ce client.
+              </p>
+
+              <span class="coming-soon">
+                Bientôt disponible
+              </span>
+
+            </section>
+
+          }
+
+          @case ('quotes') {
+
+            <section class="panel empty-state">
+
+              <div class="empty-icon">📄</div>
+
+              <h3>Devis</h3>
+
+              <p>
+                Créez et consultez les devis de ce client
+                directement depuis sa fiche.
+              </p>
+
+              <span class="coming-soon">
+                Bientôt disponible
+              </span>
+
+            </section>
+
+          }
+
+          @case ('invoices') {
+
+            <section class="panel empty-state">
+
+              <div class="empty-icon">🧾</div>
+
+              <h3>Factures</h3>
+
+              <p>
+                Retrouvez prochainement les factures,
+                les paiements et les échéances de ce client.
+              </p>
+
+              <span class="coming-soon">
+                Bientôt disponible
+              </span>
+
+            </section>
+
+          }
+
+        }
+
+      }
+
+    } @else {
+
+      <section class="panel empty-state">
+
+        <h3>Client introuvable</h3>
+
+        <button
+          class="secondary-btn"
+          (click)="loadClient()">
+
+          Réessayer
+
+        </button>
+
+      </section>
+
+    }
+
+  }
+
+  <!-- Confirmation d'archivage -->
+
+  @if (confirmArchive()) {
+
+    <div class="modal-overlay">
+
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="archive-title">
+
+        <h3 id="archive-title">
+          Archiver ce client ?
+        </h3>
+
+        <p>
+          Le client
+          <strong>{{ client()?.name }}</strong>
+          sera retiré de la liste des clients actifs.
+        </p>
+
+        <p>
+          Ses informations et son historique seront
+          conservés. Vous pourrez le réactiver
+          à tout moment.
+        </p>
+
+        <div class="modal-actions">
+
+          <button
+            class="secondary-btn"
+            [disabled]="archiving()"
+            (click)="confirmArchive.set(false)">
+
+            Annuler
+
+          </button>
+
+          <button
+            class="danger-btn"
+            [disabled]="archiving()"
+            (click)="archiveClient()">
+
+            {{ archiving()
+              ? 'Archivage...'
+              : 'Archiver le client' }}
+
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  }
+
+</div>

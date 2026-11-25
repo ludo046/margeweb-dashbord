@@ -1,8 +1,14 @@
+import {
+  Injectable,
+  inject,
+  signal,
+  computed
+} from '@angular/core';
 
-import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { ClientsService } from './clients';
 
 export type ProspectStatus =
   | 'À contacter'
@@ -33,7 +39,9 @@ export interface Prospect {
   providedIn: 'root'
 })
 export class ProspectsService {
+
   private readonly http = inject(HttpClient);
+  private readonly clientsService = inject(ClientsService);
 
   private readonly apiUrl =
     `${environment.apiUrl}/prospects`;
@@ -42,35 +50,129 @@ export class ProspectsService {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
-  readonly urgentFollowUps = computed(() => {
-  const now = new Date();
+  private pendingLoad: Promise<void> | null = null;
 
-  const today = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0')
-  ].join('-');
+  // Chargement des données commerciales
 
-  return this.prospects().filter(p =>
-    p.status !== 'Client' &&
-    p.nextFollowUp &&
-    p.nextFollowUp <= today
+  readonly commercialLoading = computed(() =>
+    this.loading() ||
+    this.clientsService.loading()
   );
-});
 
-readonly urgentFollowUpCount = computed(() =>
-  this.urgentFollowUps().length
-);
+  readonly commercialError = computed(() =>
+    this.error() ||
+    this.clientsService.error()
+  );
+
+  // Identifiants des prospects convertis
+
+  readonly convertedProspectIds = computed(() =>
+    new Set(
+      this.clientsService.clients()
+        .map(client => client.prospectId)
+        .filter((id): id is number =>
+          typeof id === 'number'
+        )
+    )
+  );
+
+  // Prospects non convertis
+
+  readonly activeProspects = computed(() =>
+    this.prospects().filter(
+      prospect =>
+        !this.convertedProspectIds().has(prospect.id)
+    )
+  );
+
+  // Prospects réellement en cours de prospection
+
+  readonly commercialProspects = computed(() =>
+    this.activeProspects().filter(
+      prospect => prospect.status !== 'Client'
+    )
+  );
+
+  // Toutes les relances commerciales
+
+  readonly scheduledFollowUps = computed(() => {
+
+    if (
+      this.commercialLoading() ||
+      this.commercialError()
+    ) {
+      return [];
+    }
+
+    return this.commercialProspects()
+      .filter(prospect => !!prospect.nextFollowUp)
+      .sort((a, b) =>
+        a.nextFollowUp!.localeCompare(b.nextFollowUp!)
+      );
+
+  });
+
+  // Relances urgentes
+
+  readonly urgentFollowUps = computed(() => {
+
+    const now = new Date();
+
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0')
+    ].join('-');
+
+    return this.scheduledFollowUps().filter(
+      prospect => prospect.nextFollowUp! <= today
+    );
+
+  });
+
+  readonly urgentFollowUpCount = computed(() =>
+    this.urgentFollowUps().length
+  );
 
   constructor() {
-    void this.load();
+    void this.loadCommercialData();
   }
 
-  async load(): Promise<void> {
+  // Chargement des prospects et clients
+
+  async loadCommercialData(): Promise<void> {
+
+    await Promise.all([
+      this.load(),
+      this.clientsService.load()
+    ]);
+
+  }
+
+  // Chargement des prospects
+
+  load(): Promise<void> {
+
+    if (this.pendingLoad) {
+      return this.pendingLoad;
+    }
+
+    this.pendingLoad = this.fetchProspects()
+      .finally(() => {
+        this.pendingLoad = null;
+      });
+
+    return this.pendingLoad;
+
+  }
+
+  private async fetchProspects(): Promise<void> {
+
     this.loading.set(true);
     this.error.set(null);
 
     try {
+
       const data = await firstValueFrom(
         this.http.get<Prospect[]>(this.apiUrl)
       );
@@ -78,18 +180,53 @@ readonly urgentFollowUpCount = computed(() =>
       this.prospects.set(data);
 
     } catch (error) {
+
       console.error(error);
+
       this.error.set(
         'Impossible de récupérer les prospects.'
       );
+
     } finally {
+
       this.loading.set(false);
+
     }
+
   }
 
+  // Recherche
+
   findById(id: number): Prospect | undefined {
-    return this.prospects().find(p => p.id === id);
+
+    return this.prospects().find(
+      prospect => prospect.id === id
+    );
+
   }
+
+  isConverted(id: number): boolean {
+
+    return this.convertedProspectIds().has(id);
+
+  }
+
+  canScheduleFollowUp(id: number): boolean {
+
+    if (
+      this.commercialLoading() ||
+      this.commercialError()
+    ) {
+      return false;
+    }
+
+    return this.commercialProspects().some(
+      prospect => prospect.id === id
+    );
+
+  }
+
+  // Création
 
   async create(
     data: Omit<Prospect, 'id'>
@@ -105,12 +242,26 @@ readonly urgentFollowUpCount = computed(() =>
     ]);
 
     return prospect;
+
   }
+
+  // Modification
 
   async update(
     id: number,
     changes: Partial<Prospect>
   ): Promise<Prospect> {
+
+    if (
+      changes.nextFollowUp &&
+      !this.canScheduleFollowUp(id)
+    ) {
+
+      throw new Error(
+        'Impossible de programmer une relance pour ce prospect.'
+      );
+
+    }
 
     const prospect = await firstValueFrom(
       this.http.patch<Prospect>(
@@ -120,13 +271,27 @@ readonly urgentFollowUpCount = computed(() =>
     );
 
     this.prospects.update(items =>
-      items.map(p => p.id === id ? prospect : p)
+      items.map(item =>
+        item.id === id ? prospect : item
+      )
     );
 
     return prospect;
+
   }
 
+  // Suppression
+
   async remove(id: number): Promise<void> {
+
+    if (this.isConverted(id)) {
+
+      throw new Error(
+        'Impossible de supprimer un prospect converti.'
+      );
+
+    }
+
     await firstValueFrom(
       this.http.delete<void>(
         `${this.apiUrl}/${id}`
@@ -134,27 +299,38 @@ readonly urgentFollowUpCount = computed(() =>
     );
 
     this.prospects.update(items =>
-      items.filter(p => p.id !== id)
+      items.filter(prospect => prospect.id !== id)
     );
+
   }
 
+  // Relance effectuée
 
-async completeFollowUp(id: number): Promise<Prospect> {
+  async completeFollowUp(id: number): Promise<Prospect> {
 
-  const prospect = await firstValueFrom(
-    this.http.post<Prospect>(
-      `${this.apiUrl}/${id}/complete-follow-up`,
-      {}
-    )
-  );
+    if (!this.canScheduleFollowUp(id)) {
 
-  this.prospects.update(items =>
-    items.map(p =>
-      p.id === id ? prospect : p
-    )
-  );
+      throw new Error(
+        'Cette relance commerciale ne peut plus être traitée.'
+      );
 
-  return prospect;
-}
+    }
+
+    const prospect = await firstValueFrom(
+      this.http.post<Prospect>(
+        `${this.apiUrl}/${id}/complete-follow-up`,
+        {}
+      )
+    );
+
+    this.prospects.update(items =>
+      items.map(item =>
+        item.id === id ? prospect : item
+      )
+    );
+
+    return prospect;
+
+  }
 
 }

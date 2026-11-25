@@ -46,6 +46,24 @@ export const routes: Routes = [
       .then(m => m.Messaging)
   },
   {
+  path: 'clients',
+  loadComponent: () =>
+    import('./features/clients/clients')
+      .then(m => m.Clients)
+  },
+  {
+    path: 'clients/new',
+    loadComponent: () =>
+      import('./features/client-detail/client-detail')
+        .then(m => m.ClientDetail)
+  },
+  {
+    path: 'clients/:id',
+    loadComponent: () =>
+      import('./features/client-detail/client-detail')
+        .then(m => m.ClientDetail)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

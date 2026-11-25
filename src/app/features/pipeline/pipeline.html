@@ -1,27 +1,128 @@
-
 <div class="pipeline-page">
 
   <header class="page-heading">
+
     <div>
-      <span class="eyebrow">GESTION COMMERCIALE</span>
+
+      <span class="eyebrow">
+        GESTION COMMERCIALE
+      </span>
+
       <h1>Pipeline commercial</h1>
-      <p>Visualise et organise tes opportunités.</p>
+
+      <p>
+        Visualise et organise tes opportunités.
+      </p>
+
     </div>
 
-    <a routerLink="/prospects/new" class="primary-btn">
-      + Nouveau prospect
-    </a>
+    <div class="header-actions">
+
+      @if (!loading() && !loadError()) {
+
+        <span class="total-count">
+          {{ totalProspects() }} opportunité(s)
+        </span>
+
+      }
+
+      <button
+        type="button"
+        class="secondary-btn"
+        [disabled]="loading() || moving()"
+        (click)="refresh()">
+
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+
+      </button>
+
+      <a routerLink="/prospects/new" class="primary-btn">
+        + Nouveau prospect
+      </a>
+
+    </div>
+
   </header>
 
   @if (error()) {
-    <p class="error-message">{{ error() }}</p>
+
+    <div class="error-message" role="alert">
+      {{ error() }}
+    </div>
+
   }
 
   @if (loading()) {
-    <p>Chargement des prospects...</p>
+
+    <div class="loading-state">
+      Chargement du pipeline commercial...
+    </div>
+
   } @else if (loadError()) {
-    <p class="error-message">{{ loadError() }}</p>
+
+    <div class="loading-state">
+
+      <p class="error-message">
+        {{ loadError() }}
+      </p>
+
+      <button
+        type="button"
+        class="secondary-btn"
+        (click)="refresh()">
+
+        Réessayer
+
+      </button>
+
+    </div>
+
   } @else {
+
+    <!-- Anciennes conversions à finaliser -->
+
+    @if (pendingConversions().length > 0) {
+
+      <div class="conversion-warning">
+
+        <div class="warning-icon">!</div>
+
+        <div class="warning-content">
+
+          <strong>
+            {{ pendingConversions().length }}
+            conversion(s) à finaliser
+          </strong>
+
+          <p>
+            Ces prospects possèdent un ancien statut Client,
+            mais aucune fiche client associée.
+          </p>
+
+          <div class="pending-links">
+
+            @for (
+              prospect of pendingConversions();
+              track prospect.id
+            ) {
+
+              <a [routerLink]="['/prospects', prospect.id]">
+
+                {{ prospect.name }} →
+
+              </a>
+
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+
+    }
+
+    <!-- Pipeline commercial -->
 
     <div class="kanban-board" cdkDropListGroup>
 
@@ -31,20 +132,23 @@
 
           <header
             class="column-header"
-            [style.border-top-color]="column.color"
-          >
+            [style.border-top-color]="column.color">
+
             <div class="column-title">
+
               <span
                 class="status-dot"
-                [style.background]="column.color"
-              ></span>
+                [style.background]="column.color">
+              </span>
 
               <h2>{{ column.status }}</h2>
+
             </div>
 
             <span class="column-count">
               {{ column.prospects.length }}
             </span>
+
           </header>
 
           <div
@@ -52,57 +156,79 @@
             cdkDropList
             [cdkDropListData]="column.prospects"
             [cdkDropListSortingDisabled]="true"
-            (cdkDropListDropped)="drop($event, column.status)"
-          >
+            [cdkDropListDisabled]="moving()"
+            (cdkDropListDropped)="drop($event, column.status)">
 
-            @for (prospect of column.prospects; track prospect.id) {
+            @for (
+              prospect of column.prospects;
+              track prospect.id
+            ) {
 
               <article
                 class="prospect-card"
                 cdkDrag
                 [cdkDragData]="prospect"
-                [cdkDragDisabled]="moving()"
-              >
+                [cdkDragDisabled]="moving()">
 
                 <a
                   class="prospect-name"
-                  [routerLink]="['/prospects', prospect.id]"
-                >
+                  [routerLink]="['/prospects', prospect.id]">
+
                   {{ prospect.name }}
+
                 </a>
 
                 <p class="location">
                   {{ prospect.location || 'Non renseignée' }}
                 </p>
 
-                @if (prospect.creationQuote != null ||
-                     prospect.monthlySubscription != null) {
+                @if (
+                  prospect.creationQuote != null ||
+                  prospect.monthlySubscription != null
+                ) {
 
                   <div class="card-financial">
 
                     @if (prospect.creationQuote != null) {
+
                       <div>
-                        <small>Création</small>
-                        <strong>{{ prospect.creationQuote }} €</strong>
+
+                        <small>Création estimée</small>
+
+                        <strong>
+                          {{ prospect.creationQuote }} €
+                        </strong>
+
                       </div>
+
                     }
 
                     @if (prospect.monthlySubscription != null) {
+
                       <div>
-                        <small>Abonnement</small>
+
+                        <small>Abonnement estimé</small>
+
                         <strong>
                           {{ prospect.monthlySubscription }} €/m
                         </strong>
+
                       </div>
+
                     }
 
                   </div>
+
                 }
 
                 @if (prospect.nextFollowUp) {
+
                   <div class="followup">
+
                     Relance : {{ prospect.nextFollowUp }}
+
                   </div>
+
                 }
 
               </article>

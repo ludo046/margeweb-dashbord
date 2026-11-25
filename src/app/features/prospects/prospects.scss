@@ -181,3 +181,75 @@ tbody tr {
     background: #0d9e90;
   }
 }
+
+// Bouton d'actualisation
+
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #17243b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// Ancien prospect marqué comme client
+
+.conversion-required {
+  display: inline-flex;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    background: #fde68a;
+  }
+}
+
+// Erreur de chargement
+
+.list-error {
+  padding: 40px 20px;
+  text-align: center;
+
+  strong {
+    color: #b91c1c;
+    font-size: 15px;
+  }
+
+  p {
+    color: #8190a6;
+    font-size: 14px;
+    margin: 12px 0 20px;
+  }
+}
+
+.header-actions {
+  flex-wrap: wrap;
+}
+
+.table-container > .empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #8190a6;
+}

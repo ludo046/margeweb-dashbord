@@ -1,94 +1,242 @@
-
 <section class="prospects-page">
+
   <header class="page-heading">
+
     <div>
       <span class="eyebrow">GESTION COMMERCIALE</span>
+
       <h2>Mes prospects</h2>
+
       <p>Retrouve toutes tes opportunités commerciales.</p>
     </div>
 
-<div class="header-actions">
-  <span class="count">
-    {{ filteredProspects().length }} prospect(s)
-  </span>
+    <div class="header-actions">
 
-  <a routerLink="/prospects/new" class="primary-btn">
-    + Nouveau prospect
-  </a>
-</div>
+      @if (!loading() && !error()) {
+
+        <span class="count">
+          {{ filteredProspects().length }} prospect(s)
+        </span>
+
+      }
+
+      <button
+        type="button"
+        class="secondary-btn"
+        [disabled]="loading()"
+        (click)="refresh()">
+
+        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+
+      </button>
+
+      <a routerLink="/prospects/new" class="primary-btn">
+        + Nouveau prospect
+      </a>
+
+    </div>
+
   </header>
 
+  <!-- Recherche et filtres -->
+
   <div class="toolbar">
+
     <input
       type="search"
+      aria-label="Rechercher un prospect"
       placeholder="Rechercher une course, une ville, un e-mail..."
       [ngModel]="search()"
       (ngModelChange)="search.set($event)"
     />
 
     <select
+      aria-label="Filtrer par statut"
       [ngModel]="statusFilter()"
-      (ngModelChange)="statusFilter.set($event)"
-    >
+      (ngModelChange)="statusFilter.set($event)">
+
       @for (status of statuses; track status) {
-        <option [value]="status">{{ status }}</option>
+
+        <option [value]="status">
+          {{ status }}
+        </option>
+
       }
+
     </select>
+
   </div>
 
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>Course / Organisation</th>
-          <th>Localisation</th>
-          <th>E-mail</th>
-          <th>Statut</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
+  <!-- Chargement -->
 
-      <tbody>
-        @for (prospect of filteredProspects(); track prospect.id) {
+  @if (loading()) {
+
+    <div class="table-container">
+
+      <div class="empty">
+        Chargement des prospects...
+      </div>
+
+    </div>
+
+  } @else if (error()) {
+
+    <!-- Erreur de chargement -->
+
+    <div class="table-container">
+
+      <div class="list-error">
+
+        <strong>
+          Impossible de charger les prospects.
+        </strong>
+
+        <p>{{ error() }}</p>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          (click)="refresh()">
+
+          Réessayer
+
+        </button>
+
+      </div>
+
+    </div>
+
+  } @else {
+
+    <!-- Liste des prospects -->
+
+    <div class="table-container">
+
+      <table>
+
+        <thead>
+
           <tr>
-            <td class="name">
-              <a [routerLink]="['/prospects', prospect.id]">
-                {{ prospect.name }}
-              </a>
-            </td>
+            <th>Course / Organisation</th>
+            <th>Localisation</th>
+            <th>E-mail</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
 
-            <td>{{ prospect.location }}</td>
-            <td>{{ prospect.email }}</td>
+        </thead>
 
-            <td>
-              <select
-                class="status-select"
-                [ngModel]="prospect.status"
-                (ngModelChange)="updateStatus(prospect.id, $event)"
-              >
-                @for (status of statuses.slice(1); track status) {
-                  <option [value]="status">{{ status }}</option>
+        <tbody>
+
+          @for (
+            prospect of filteredProspects();
+            track prospect.id
+          ) {
+
+            <tr>
+
+              <td class="name">
+
+                <a [routerLink]="['/prospects', prospect.id]">
+
+                  {{ prospect.name }}
+
+                </a>
+
+              </td>
+
+              <td>
+                {{ prospect.location || '—' }}
+              </td>
+
+              <td>
+                {{ prospect.email || '—' }}
+              </td>
+
+              <td>
+
+                @if (prospect.status === 'Client') {
+
+                  <a
+                    class="conversion-required"
+                    [routerLink]="['/prospects', prospect.id]">
+
+                    Conversion à finaliser
+
+                  </a>
+
+                } @else {
+
+                  <select
+                    class="status-select"
+                    [attr.aria-label]="'Statut de ' + prospect.name"
+                    [ngModel]="prospect.status"
+                    (ngModelChange)="updateStatus(
+                      prospect.id,
+                      $event
+                    )">
+
+                    @for (
+                      status of commercialStatuses;
+                      track status
+                    ) {
+
+                      <option [value]="status">
+
+                        {{ status }}
+
+                      </option>
+
+                    }
+
+                  </select>
+
                 }
-              </select>
-            </td>
 
-            <td>
-              <a
-                class="detail-btn"
-                [routerLink]="['/prospects', prospect.id]"
-              >
-                Voir la fiche →
-              </a>
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="5" class="empty">
-              Aucun prospect ne correspond à ta recherche.
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+              </td>
+
+              <td>
+
+                <a
+                  class="detail-btn"
+                  [routerLink]="['/prospects', prospect.id]">
+
+                  Voir la fiche →
+
+                </a>
+
+              </td>
+
+            </tr>
+
+          } @empty {
+
+            <tr>
+
+              <td colspan="5" class="empty">
+
+                @if (search() || statusFilter() !== 'Tous') {
+
+                  Aucun prospect ne correspond à ta recherche.
+
+                } @else {
+
+                  Aucun prospect à afficher.
+
+                }
+
+              </td>
+
+            </tr>
+
+          }
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  }
+
 </section>

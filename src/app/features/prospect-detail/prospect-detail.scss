@@ -319,3 +319,141 @@ input.ng-invalid.ng-touched {
     cursor: pointer;
   }
 }
+
+// Conversion des prospects en clients
+
+.convert-btn,
+.client-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.2s;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.convert-btn {
+  background: #16a34a;
+  border: 1px solid #16a34a;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: #15803d;
+  }
+}
+
+.client-btn {
+  background: #e0f7f4;
+  border: 1px solid #99f6e4;
+  color: #0d9488;
+
+  &:hover {
+    background: #ccfbf1;
+  }
+}
+
+.client-banner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  margin-bottom: 25px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: #f0fdf4;
+
+  .client-banner-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #dcfce7;
+    color: #16a34a;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .client-banner-content {
+    flex: 1;
+
+    strong {
+      color: #166534;
+      font-size: 15px;
+    }
+
+    p {
+      color: #15803d;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 5px 0 0;
+    }
+  }
+
+  a {
+    color: #15803d;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.conversion-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 20px;
+  background: #dcfce7;
+  color: #16a34a;
+  border-radius: 50%;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.conversion-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  margin: 20px 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: #15803d;
+  font-size: 13px;
+  text-align: left;
+}
+
+.conversion-note {
+  font-size: 12px !important;
+  color: #8190a6 !important;
+}
+
+@media (max-width: 700px) {
+  .client-banner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+
+    a {
+      width: 100%;
+    }
+  }
+}

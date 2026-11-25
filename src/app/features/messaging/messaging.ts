@@ -12,7 +12,8 @@ import { RouterLink } from '@angular/router';
 
 import {
   Email,
-  EmailsService
+  EmailsService,
+  MailFolder
 } from '../../core/services/emails';
 
 import {
@@ -41,6 +42,7 @@ export class Messaging {
   readonly loading = this.service.loading;
   readonly syncing = this.service.syncing;
   readonly loadError = this.service.error;
+  readonly activeFolder = this.service.activeFolder;
 
   readonly search = signal('');
   readonly unreadOnly = signal(false);
@@ -48,11 +50,21 @@ export class Messaging {
 
   readonly error = signal<string | null>(null);
   readonly notification = signal<string | null>(null);
-
+  readonly warning = signal<string | null>(null);
 
   readonly composerOpen = signal(false);
   readonly composerMode = signal<MailMode>('new');
   readonly composerEmail = signal<Email | null>(null);
+
+  readonly isSentFolder = computed(() =>
+    this.activeFolder() === 'SENT'
+  );
+
+  readonly folderTitle = computed(() =>
+    this.isSentFolder()
+      ? 'Messages envoyés'
+      : 'Boîte de réception'
+  );
 
   readonly selectedEmail = computed(() =>
     this.emails().find(
@@ -69,6 +81,7 @@ export class Messaging {
       const matchesSearch = [
         email.fromName,
         email.fromEmail,
+        email.toEmail,
         email.subject,
         email.textContent
       ].some(value =>
@@ -76,7 +89,9 @@ export class Messaging {
       );
 
       const matchesUnread =
-        !this.unreadOnly() || !email.isRead;
+        this.isSentFolder() ||
+        !this.unreadOnly() ||
+        !email.isRead;
 
       return matchesSearch && matchesUnread;
 
@@ -87,12 +102,37 @@ export class Messaging {
     void this.service.load();
   }
 
+  async changeFolder(folder: MailFolder): Promise<void> {
+
+    if (folder === this.activeFolder()) return;
+
+    this.selectedId.set(null);
+    this.search.set('');
+    this.unreadOnly.set(false);
+    this.error.set(null);
+    this.notification.set(null);
+    this.warning.set(null);
+
+    await this.service.load(folder);
+  }
+
+  correspondent(email: Email): string {
+
+    if (email.folder === 'SENT') {
+      return email.toEmail || 'Destinataire inconnu';
+    }
+
+    return email.fromName ||
+      email.fromEmail ||
+      'Expéditeur inconnu';
+  }
+
   async openEmail(email: Email): Promise<void> {
 
     this.selectedId.set(email.id);
     this.error.set(null);
 
-    if (!email.isRead) {
+    if (email.folder === 'INBOX' && !email.isRead) {
 
       try {
 
@@ -116,6 +156,8 @@ export class Messaging {
 
   async toggleRead(email: Email): Promise<void> {
 
+    if (email.folder !== 'INBOX') return;
+
     this.error.set(null);
 
     try {
@@ -137,7 +179,9 @@ export class Messaging {
   }
 
   async refresh(): Promise<void> {
-    await this.service.load();
+
+    await this.service.load(this.activeFolder());
+
   }
 
   async synchronize(): Promise<void> {
@@ -146,14 +190,39 @@ export class Messaging {
 
     this.error.set(null);
     this.notification.set(null);
+    this.warning.set(null);
 
     try {
 
       const result = await this.service.sync();
 
-      this.notification.set(
-        `Synchronisation terminée : ${result.imported} nouveau(x) message(s).`
-      );
+      const received =
+        result.folders?.['INBOX']?.imported || 0;
+
+      const sent =
+        result.folders?.['SENT']?.imported || 0;
+
+      if (result.folders) {
+
+        this.notification.set(
+          `Synchronisation terminée : ${received} reçu(s), ${sent} envoyé(s).`
+        );
+
+      } else {
+
+        this.notification.set(
+          `Synchronisation terminée : ${result.imported} nouveau(x) message(s).`
+        );
+
+      }
+
+      if (result.warnings?.length) {
+
+        this.warning.set(
+          result.warnings.join(' ')
+        );
+
+      }
 
     } catch (error: any) {
 
@@ -167,39 +236,43 @@ export class Messaging {
 
   newMessage(): void {
 
-  this.composerMode.set('new');
-  this.composerEmail.set(null);
-  this.composerOpen.set(true);
+    this.composerMode.set('new');
+    this.composerEmail.set(null);
+    this.composerOpen.set(true);
 
-}
+  }
 
-replyTo(email: Email): void {
+  replyTo(email: Email): void {
 
-  this.composerMode.set('reply');
-  this.composerEmail.set(email);
-  this.composerOpen.set(true);
+    if (email.folder !== 'INBOX') return;
 
-}
+    this.composerMode.set('reply');
+    this.composerEmail.set(email);
+    this.composerOpen.set(true);
 
-forwardEmail(email: Email): void {
+  }
 
-  this.composerMode.set('forward');
-  this.composerEmail.set(email);
-  this.composerOpen.set(true);
+  forwardEmail(email: Email): void {
 
-}
+    this.composerMode.set('forward');
+    this.composerEmail.set(email);
+    this.composerOpen.set(true);
 
-closeComposer(): void {
+  }
 
-  this.composerOpen.set(false);
-  this.composerEmail.set(null);
+  closeComposer(): void {
 
-}
+    this.composerOpen.set(false);
+    this.composerEmail.set(null);
 
-onMailSent(message: string): void {
+  }
 
-  this.closeComposer();
-  this.notification.set(message);
+  onMailSent(message: string): void {
 
-}
+    this.closeComposer();
+    this.error.set(null);
+    this.warning.set(null);
+    this.notification.set(message);
+
+  }
 }

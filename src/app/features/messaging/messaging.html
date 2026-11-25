@@ -12,12 +12,6 @@
     <div class="header-actions">
 
       <button
-        class="primary-btn"
-        (click)="newMessage()">
-        + Nouveau message
-      </button>
-
-      <button
         class="secondary-btn"
         (click)="refresh()"
         [disabled]="loading() || syncing()">
@@ -36,251 +30,409 @@
   </header>
 
   @if (error() || loadError()) {
+
     <div class="error-message" role="alert">
       {{ error() || loadError() }}
     </div>
+
   }
 
   @if (notification()) {
+
     <div class="success-message" role="status">
       {{ notification() }}
     </div>
+
   }
 
-  <div
-    class="mail-layout"
-    [class.has-selection]="selectedEmail()">
+  @if (warning()) {
 
-    <div class="inbox">
+    <div class="warning-message" role="status">
+      {{ warning() }}
+    </div>
 
-      <div class="inbox-header">
+  }
 
-        <div class="inbox-title">
+  <div class="mail-workspace">
 
-          <h3>Boîte de réception</h3>
+    <aside class="folder-sidebar">
+
+      <button
+        class="primary-btn compose-btn"
+        (click)="newMessage()">
+
+        <span class="folder-icon">+</span>
+        Nouveau message
+
+      </button>
+
+      <div class="folder-label">
+        DOSSIERS
+      </div>
+
+      <nav class="folder-navigation">
+
+        <button
+          class="folder-btn"
+          [class.active]="activeFolder() === 'INBOX'"
+          [attr.aria-current]="activeFolder() === 'INBOX' ? 'page' : null"
+          (click)="changeFolder('INBOX')">
+
+          <span class="folder-icon">✉</span>
+          <span class="folder-name">Réception</span>
 
           @if (unreadCount() > 0) {
-            <span class="unread-badge">
+
+            <span class="folder-count">
               {{ unreadCount() }}
             </span>
+
           }
 
-        </div>
+        </button>
 
-        <span class="account">
-          contact@margeweb.fr
-        </span>
+        <button
+          class="folder-btn"
+          [class.active]="activeFolder() === 'SENT'"
+          [attr.aria-current]="activeFolder() === 'SENT' ? 'page' : null"
+          (click)="changeFolder('SENT')">
 
-        <input
-          type="search"
-          placeholder="Rechercher un message..."
-          [ngModel]="search()"
-          (ngModelChange)="search.set($event)">
+          <span class="folder-icon">➤</span>
+          <span class="folder-name">Envoyés</span>
 
-        <div class="filters">
+        </button>
 
-          <button
-            [class.active]="!unreadOnly()"
-            (click)="unreadOnly.set(false)">
-            Tous
-          </button>
+        <button
+          class="folder-btn"
+          title="Disponible prochainement"
+          disabled>
 
-          <button
-            [class.active]="unreadOnly()"
-            (click)="unreadOnly.set(true)">
-            Non lus
-          </button>
+          <span class="folder-icon">▤</span>
+          <span class="folder-name">Brouillons</span>
+
+        </button>
+
+        <button
+          class="folder-btn"
+          title="Disponible prochainement"
+          disabled>
+
+          <span class="folder-icon">▣</span>
+          <span class="folder-name">Archives</span>
+
+        </button>
+
+        <button
+          class="folder-btn"
+          title="Disponible prochainement"
+          disabled>
+
+          <span class="folder-icon">♲</span>
+          <span class="folder-name">Corbeille</span>
+
+        </button>
+
+      </nav>
+
+      <div class="mail-account">
+
+        <div class="account-avatar">M</div>
+
+        <div class="account-details">
+
+          <strong>MargeWeb</strong>
+
+          <span>contact@margeweb.fr</span>
 
         </div>
 
       </div>
 
-      <div class="mail-list">
+    </aside>
 
-        @if (loading()) {
+    <div
+      class="mail-layout"
+      [class.has-selection]="selectedEmail()">
 
-          <div class="empty-state">
-            Chargement des messages...
+      <div class="inbox">
+
+        <div class="inbox-header">
+
+          <div class="inbox-title">
+
+            <h3>{{ folderTitle() }}</h3>
+
+            @if (!isSentFolder() && unreadCount() > 0) {
+
+              <span class="unread-badge">
+                {{ unreadCount() }}
+              </span>
+
+            }
+
           </div>
 
-        } @else {
+          <span class="account">
+            {{ emails().length }} message(s) chargé(s)
+          </span>
 
-          @for (email of filteredEmails(); track email.id) {
+          <input
+            type="search"
+            placeholder="Rechercher un message..."
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event)">
 
-            <button
-              class="mail-item"
-              [class.unread]="!email.isRead"
-              [class.selected]="selectedId() === email.id"
-              (click)="openEmail(email)">
+          @if (!isSentFolder()) {
 
-              <div class="avatar">
-                {{ (email.fromName || email.fromEmail || '?').charAt(0).toUpperCase() }}
+            <div class="filters">
+
+              <button
+                [class.active]="!unreadOnly()"
+                (click)="unreadOnly.set(false)">
+                Tous
+              </button>
+
+              <button
+                [class.active]="unreadOnly()"
+                (click)="unreadOnly.set(true)">
+                Non lus
+              </button>
+
+            </div>
+
+          }
+
+        </div>
+
+        <div class="mail-list">
+
+          @if (loading()) {
+
+            <div class="empty-state">
+              Chargement des messages...
+            </div>
+
+          } @else {
+
+            @for (email of filteredEmails(); track email.id) {
+
+              <button
+                class="mail-item"
+                [class.unread]="!isSentFolder() && !email.isRead"
+                [class.selected]="selectedId() === email.id"
+                (click)="openEmail(email)">
+
+                <div class="avatar">
+
+                  {{ correspondent(email).charAt(0).toUpperCase() }}
+
+                </div>
+
+                <div class="mail-info">
+
+                  <div class="mail-top">
+
+                    <span class="sender">
+
+                      @if (isSentFolder()) {
+                        À :
+                      }
+
+                      {{ correspondent(email) }}
+
+                    </span>
+
+                    <span class="mail-date">
+
+                      {{ email.receivedAt | date:'dd MMM, HH:mm':'':'fr-FR' }}
+
+                    </span>
+
+                  </div>
+
+                  <div class="subject">
+                    {{ email.subject || '(Sans objet)' }}
+                  </div>
+
+                  <div class="preview">
+                    {{ email.textContent }}
+                  </div>
+
+                  @if (email.prospect) {
+
+                    <span class="prospect-tag">
+                      Prospect associé
+                    </span>
+
+                  }
+
+                </div>
+
+                @if (!isSentFolder() && !email.isRead) {
+
+                  <span class="unread-dot"></span>
+
+                }
+
+              </button>
+
+            } @empty {
+
+              <div class="empty-state">
+                Aucun message trouvé.
               </div>
 
-              <div class="mail-info">
+            }
 
-                <div class="mail-top">
+          }
 
-                  <span class="sender">
+        </div>
+
+      </div>
+
+      <div class="reader">
+
+        @if (selectedEmail(); as email) {
+
+          <div class="reader-header">
+
+            <button
+              class="close-btn"
+              (click)="closeEmail()">
+              ← Retour
+            </button>
+
+            <h2>
+              {{ email.subject || '(Sans objet)' }}
+            </h2>
+
+            <div class="sender-details">
+
+              <div class="avatar large">
+
+                {{ correspondent(email).charAt(0).toUpperCase() }}
+
+              </div>
+
+              <div>
+
+                <strong>
+
+                  @if (isSentFolder()) {
+
+                    À : {{ email.toEmail }}
+
+                  } @else {
+
                     {{ email.fromName || email.fromEmail }}
-                  </span>
 
-                  <span class="mail-date">
-                    {{ email.receivedAt | date:'dd MMM, HH:mm':'':'fr-FR' }}
-                  </span>
+                  }
 
-                </div>
+                </strong>
 
-                <div class="subject">
-                  {{ email.subject }}
-                </div>
+                <span>
+                  De : {{ email.fromEmail }}
+                </span>
 
-                <div class="preview">
-                  {{ email.textContent }}
-                </div>
+                @if (!isSentFolder()) {
 
-                @if (email.prospect) {
-
-                  <span class="prospect-tag">
-                    Prospect associé
+                  <span>
+                    À : {{ email.toEmail }}
                   </span>
 
                 }
 
               </div>
 
-              @if (!email.isRead) {
-                <span class="unread-dot"></span>
-              }
+            </div>
 
-            </button>
+            <div class="received-date">
 
-          } @empty {
+              {{ isSentFolder() ? 'Envoyé le' : 'Reçu le' }}
 
-            <div class="empty-state">
-              Aucun message trouvé.
+              {{ email.receivedAt | date:"dd MMMM yyyy 'à' HH:mm":'':'fr-FR' }}
+
+            </div>
+
+            @if (email.prospect; as prospect) {
+
+              <a
+                class="linked-prospect"
+                [routerLink]="['/prospects', prospect.id]">
+
+                Voir le prospect : {{ prospect.name }}
+
+              </a>
+
+            }
+
+          </div>
+
+          <div class="mail-content">
+
+            {{ email.textContent || 'Aucun contenu texte disponible.' }}
+
+          </div>
+
+          @if (email.hasAttachments) {
+
+            <div class="attachment-info">
+              📎 Ce message contient des pièces jointes.
             </div>
 
           }
+
+          <div class="reader-actions">
+
+            @if (!isSentFolder()) {
+
+              <button
+                class="primary-btn"
+                (click)="replyTo(email)">
+                ↶ Répondre
+              </button>
+
+            }
+
+            <button
+              class="secondary-btn"
+              (click)="forwardEmail(email)">
+              ↪ Transférer
+            </button>
+
+            @if (!isSentFolder()) {
+
+              <button
+                class="secondary-btn"
+                (click)="toggleRead(email)">
+
+                {{ email.isRead
+                  ? 'Marquer comme non lu'
+                  : 'Marquer comme lu' }}
+
+              </button>
+
+            }
+
+          </div>
+
+        } @else {
+
+          <div class="reader-empty">
+
+            <div class="mail-icon">✉</div>
+
+            <h3>Sélectionnez un message</h3>
+
+            <p>
+              Choisissez un e-mail pour afficher son contenu.
+            </p>
+
+          </div>
 
         }
 
       </div>
-
-    </div>
-
-    <div class="reader">
-
-      @if (selectedEmail(); as email) {
-
-        <div class="reader-header">
-
-          <button
-            class="close-btn"
-            (click)="closeEmail()">
-            ← Retour
-          </button>
-
-          <h2>
-            {{ email.subject || '(Sans objet)' }}
-          </h2>
-
-          <div class="sender-details">
-
-            <div class="avatar">
-              {{ (email.fromName || email.fromEmail || '?').charAt(0).toUpperCase() }}
-            </div>
-
-            <div>
-
-              <strong>
-                {{ email.fromName || email.fromEmail }}
-              </strong>
-
-              <div>
-                {{ email.fromEmail }}
-              </div>
-
-              <div>
-                À : {{ email.toEmail }}
-              </div>
-
-            </div>
-
-          </div>
-
-          <div class="received-date">
-            {{ email.receivedAt | date:"dd MMMM yyyy 'à' HH:mm":'':'fr-FR' }}
-          </div>
-
-          @if (email.prospect; as prospect) {
-
-            <a
-              class="prospect-tag"
-              [routerLink]="['/prospects', prospect.id]">
-              Voir le prospect : {{ prospect.name }}
-            </a>
-
-          }
-
-        </div>
-
-        <div class="mail-content">
-
-          {{ email.textContent || 'Aucun contenu texte disponible.' }}
-
-        </div>
-
-        @if (email.hasAttachments) {
-
-          <div class="attachment-info">
-            📎 Ce message contient des pièces jointes.
-          </div>
-
-        }
-
-        <div class="reader-actions">
-
-          <button
-            class="primary-btn"
-            (click)="replyTo(email)">
-            ↶ Répondre
-          </button>
-
-          <button
-            class="secondary-btn"
-            (click)="forwardEmail(email)">
-            ↪ Transférer
-          </button>
-
-          <button
-            class="secondary-btn"
-            (click)="toggleRead(email)">
-
-            {{ email.isRead
-              ? 'Marquer comme non lu'
-              : 'Marquer comme lu' }}
-
-          </button>
-
-        </div>
-
-      } @else {
-
-        <div class="reader-empty">
-
-          <div class="empty-icon">✉</div>
-
-          <h3>Sélectionnez un message</h3>
-
-          <p>
-            Choisissez un e-mail dans votre boîte de réception
-            pour afficher son contenu.
-          </p>
-
-        </div>
-
-      }
 
     </div>
 

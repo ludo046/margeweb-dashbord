@@ -1,18 +1,29 @@
 
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
-const { sequelize, Email, Prospect, Interaction } = require('../models');
+const {
+  sequelize,
+  Email,
+  Prospect,
+  Interaction
+} = require('../models');
 
 let syncing = false;
 
 function createClient() {
+
   if (!process.env.IMAP_USER || !process.env.IMAP_PASSWORD) {
-    const error = new Error('Messagerie IMAP non configurée.');
+
+    const error = new Error(
+      'Messagerie IMAP non configurée.'
+    );
+
     error.status = 503;
     throw error;
   }
 
   return new ImapFlow({
+
     host: process.env.IMAP_HOST || 'imap.hostinger.com',
     port: Number(process.env.IMAP_PORT || 993),
     secure: process.env.IMAP_SECURE !== 'false',
@@ -26,32 +37,106 @@ function createClient() {
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 60000
+
   });
 }
 
 async function verifyConnection() {
+
   const client = createClient();
 
   try {
+
     await client.connect();
     return true;
+
   } finally {
+
     client.close();
+
   }
 }
 
-async function syncInbox() {
+async function listFolders() {
 
-  if (syncing) {
-    const error = new Error('Synchronisation déjà en cours.');
-    error.status = 409;
-    throw error;
+  const client = createClient();
+
+  try {
+
+    await client.connect();
+
+    const folders = await client.list();
+
+    return folders.map(folder => ({
+      name: folder.name,
+      path: folder.path,
+      specialUse: folder.specialUse || null
+    }));
+
+  } finally {
+
+    client.close();
+
+  }
+}
+
+async function getProspectsByEmail() {
+
+  const prospects = await Prospect.findAll();
+  const map = new Map();
+
+  for (const prospect of prospects) {
+
+    const address = prospect.email
+      ?.trim()
+      .toLowerCase();
+
+    if (!address) continue;
+
+    if (!map.has(address)) {
+      map.set(address, []);
+    }
+
+    map.get(address).push(prospect);
+
   }
 
-  syncing = true;
+  return map;
+}
 
-  let client;
-  let lock;
+function findMatchingProspect(addresses, prospectsByEmail) {
+
+  const matches = new Map();
+
+  for (const address of addresses) {
+
+    const normalized = address
+      ?.trim()
+      .toLowerCase();
+
+    if (!normalized) continue;
+
+    const prospects =
+      prospectsByEmail.get(normalized) || [];
+
+    for (const prospect of prospects) {
+
+      matches.set(prospect.id, prospect);
+
+    }
+  }
+
+  return matches.size === 1
+    ? [...matches.values()][0]
+    : null;
+}
+
+async function syncFolder(
+  client,
+  remoteFolder,
+  localFolder,
+  prospectsByEmail
+) {
 
   const stats = {
     scanned: 0,
@@ -60,37 +145,22 @@ async function syncInbox() {
     linked: 0
   };
 
+  const lock = await client.getMailboxLock(
+    remoteFolder,
+    { readOnly: true }
+  );
+
   try {
 
-    client = createClient();
-
-    await client.connect();
-
-    lock = await client.getMailboxLock('INBOX');
-
-    const uidValidity = String(client.mailbox.uidValidity);
+    const uidValidity = String(
+      client.mailbox.uidValidity
+    );
 
     if (!client.mailbox.exists) {
       return stats;
     }
 
-    const prospects = await Prospect.findAll();
-
-    const prospectsByEmail = new Map();
-
-    for (const prospect of prospects) {
-      const address = prospect.email?.trim().toLowerCase();
-
-      if (address) {
-        if (!prospectsByEmail.has(address)) {
-          prospectsByEmail.set(address, []);
-        }
-
-        prospectsByEmail.get(address).push(prospect);
-      }
-    }
-
-    // Première version : les 100 derniers messages
+    // Les 100 derniers messages du dossier.
     const first = Math.max(
       1,
       client.mailbox.exists - 99
@@ -99,33 +169,45 @@ async function syncInbox() {
     const range = `${first}:*`;
 
     for await (const message of client.fetch(range, {
+
       uid: true,
       flags: true,
       source: true,
       internalDate: true
+
     })) {
 
       stats.scanned++;
 
-      const isRead = message.flags?.has('\\Seen') || false;
+      const isRead = localFolder === 'SENT'
+        || message.flags?.has('\\Seen')
+        || false;
 
       const existing = await Email.findOne({
+
         where: {
-          folder: 'INBOX',
+          folder: localFolder,
           uidValidity,
           uid: message.uid
         }
+
       });
 
       if (existing) {
 
-        await existing.update({ isRead });
+        if (existing.isRead !== isRead) {
 
-        stats.updated++;
+          await existing.update({ isRead });
+          stats.updated++;
+
+        }
+
         continue;
       }
 
-      const parsed = await simpleParser(message.source);
+      const parsed = await simpleParser(
+        message.source
+      );
 
       const sender = parsed.from?.value?.[0];
 
@@ -133,37 +215,63 @@ async function syncInbox() {
         ?.trim()
         .toLowerCase() || '';
 
-      const matches = prospectsByEmail.get(fromEmail) || [];
+      const recipients = Array.isArray(parsed.to)
+        ? parsed.to
+        : parsed.to
+          ? [parsed.to]
+          : [];
 
-      const prospect = matches.length === 1
-        ? matches[0]
-        : null;
+      const recipientAddresses = recipients
+        .flatMap(recipient => recipient.value || [])
+        .map(recipient => recipient.address)
+        .filter(Boolean);
+
+      const toEmail = recipients
+        .map(recipient => recipient.text || '')
+        .join(', ');
+
+      const matchingAddresses =
+        localFolder === 'SENT'
+          ? recipientAddresses
+          : [fromEmail];
+
+      const prospect = findMatchingProspect(
+        matchingAddresses,
+        prospectsByEmail
+      );
+
+      const subject =
+        parsed.subject || '(Sans objet)';
+
+      const content = parsed.text || '';
+
+      const receivedAt = message.internalDate
+        || parsed.date
+        || new Date();
 
       await sequelize.transaction(async transaction => {
 
         await Email.create({
+
           uid: message.uid,
           uidValidity,
           messageId: parsed.messageId || null,
-          folder: 'INBOX',
+
+          folder: localFolder,
 
           fromName: sender?.name || '',
           fromEmail,
+          toEmail,
 
-          toEmail: parsed.to?.text || '',
+          subject,
+          textContent: content,
 
-          subject: parsed.subject || '(Sans objet)',
+          htmlContent:
+            typeof parsed.html === 'string'
+              ? parsed.html
+              : '',
 
-          textContent: parsed.text || '',
-
-          htmlContent: typeof parsed.html === 'string'
-            ? parsed.html
-            : '',
-
-          receivedAt: message.internalDate
-            || parsed.date
-            || new Date(),
-
+          receivedAt,
           isRead,
 
           hasAttachments:
@@ -173,16 +281,17 @@ async function syncInbox() {
 
         }, { transaction });
 
-        if (prospect) {
+        // Les messages reçus alimentent
+        // automatiquement l'historique commercial.
+        if (prospect && localFolder === 'INBOX') {
 
           await Interaction.create({
+
             prospectId: prospect.id,
             type: 'email_received',
-            subject: parsed.subject || '(Sans objet)',
-            content: parsed.text || '',
-            occurredAt: message.internalDate
-              || parsed.date
-              || new Date()
+            subject,
+            content,
+            occurredAt: receivedAt
 
           }, { transaction });
 
@@ -202,22 +311,121 @@ async function syncInbox() {
 
   } finally {
 
-    try {
-      if (lock) {
-        lock.release();
-      }
-
-      if (client) {
-        client.close();
-      }
-    } finally {
-      syncing = false;
-    }
+    lock.release();
 
   }
 }
 
+async function syncAll() {
+
+  if (syncing) {
+
+    const error = new Error(
+      'Synchronisation déjà en cours.'
+    );
+
+    error.status = 409;
+    throw error;
+
+  }
+
+  syncing = true;
+
+  let client;
+
+  const stats = {
+    scanned: 0,
+    imported: 0,
+    updated: 0,
+    linked: 0,
+    folders: {},
+    warnings: []
+  };
+
+  try {
+
+    client = createClient();
+
+    await client.connect();
+
+    const folders = await client.list();
+
+    const sentFolder = folders.find(folder =>
+      folder.specialUse === '\\Sent'
+    ) || folders.find(folder =>
+      ['sent', 'sent items', 'sent messages', 'envoyés']
+        .includes(folder.name?.toLowerCase())
+    );
+
+    const targets = [
+      {
+        remote: 'INBOX',
+        local: 'INBOX'
+      }
+    ];
+
+    if (sentFolder) {
+
+      targets.push({
+        remote: sentFolder.path,
+        local: 'SENT'
+      });
+
+    } else {
+
+      stats.warnings.push(
+        'Dossier des messages envoyés introuvable.'
+      );
+
+    }
+
+    const prospectsByEmail =
+      await getProspectsByEmail();
+
+    for (const target of targets) {
+
+      const result = await syncFolder(
+        client,
+        target.remote,
+        target.local,
+        prospectsByEmail
+      );
+
+      stats.folders[target.local] = result;
+
+      stats.scanned += result.scanned;
+      stats.imported += result.imported;
+      stats.updated += result.updated;
+      stats.linked += result.linked;
+
+    }
+
+    return stats;
+
+  } finally {
+
+    try {
+
+      if (client) {
+        client.close();
+      }
+
+    } finally {
+
+      syncing = false;
+
+    }
+  }
+}
+
+// Compatibilité avec le contrôleur existant.
+async function syncInbox() {
+  return syncAll();
+}
+
 module.exports = {
   verifyConnection,
-  syncInbox
+  listFolders,
+  syncInbox,
+  syncAll
 };

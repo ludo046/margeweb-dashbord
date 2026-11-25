@@ -4,6 +4,8 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+export type MailFolder = 'INBOX' | 'SENT';
+
 export interface Email {
   id: number;
   folder: string;
@@ -23,12 +25,17 @@ export interface Email {
   } | null;
 }
 
-export interface SyncResult {
-  success: boolean;
+export interface FolderStats {
   scanned: number;
   imported: number;
   updated: number;
   linked: number;
+}
+
+export interface SyncResult extends FolderStats {
+  success: boolean;
+  folders?: Record<string, FolderStats>;
+  warnings?: string[];
 }
 
 @Injectable({
@@ -41,6 +48,15 @@ export class EmailsService {
   private readonly apiUrl =
     `${environment.apiUrl}/emails`;
 
+  private readonly storageKey =
+    'margeweb-crm-mail-folder';
+
+  private loadVersion = 0;
+
+  readonly activeFolder = signal<MailFolder>(
+    this.restoreFolder()
+  );
+
   readonly emails = signal<Email[]>([]);
   readonly unreadCount = signal(0);
   readonly loading = signal(false);
@@ -51,7 +67,64 @@ export class EmailsService {
     void this.loadUnreadCount();
   }
 
-  async load(folder = 'INBOX'): Promise<void> {
+  private restoreFolder(): MailFolder {
+
+    try {
+
+      const savedFolder = localStorage.getItem(
+        this.storageKey
+      );
+
+      if (
+        savedFolder === 'INBOX' ||
+        savedFolder === 'SENT'
+      ) {
+        return savedFolder;
+      }
+
+    } catch (error) {
+
+      console.warn(
+        'Impossible de restaurer le dossier.',
+        error
+      );
+
+    }
+
+    return 'INBOX';
+  }
+
+  private saveFolder(folder: MailFolder): void {
+
+    try {
+
+      localStorage.setItem(
+        this.storageKey,
+        folder
+      );
+
+    } catch (error) {
+
+      console.warn(
+        'Impossible de mémoriser le dossier.',
+        error
+      );
+
+    }
+  }
+
+  async load(
+    folder: MailFolder = this.activeFolder()
+  ): Promise<void> {
+
+    const version = ++this.loadVersion;
+
+    if (folder !== this.activeFolder()) {
+      this.emails.set([]);
+    }
+
+    this.activeFolder.set(folder);
+    this.saveFolder(folder);
 
     this.loading.set(true);
     this.error.set(null);
@@ -64,11 +137,15 @@ export class EmailsService {
         })
       );
 
+      if (version !== this.loadVersion) return;
+
       this.emails.set(emails);
 
       await this.loadUnreadCount();
 
     } catch (error) {
+
+      if (version !== this.loadVersion) return;
 
       console.error(error);
 
@@ -78,9 +155,12 @@ export class EmailsService {
 
     } finally {
 
-      this.loading.set(false);
+      if (version === this.loadVersion) {
+        this.loading.set(false);
+      }
 
     }
+
   }
 
   async loadUnreadCount(): Promise<void> {
@@ -96,7 +176,9 @@ export class EmailsService {
       this.unreadCount.set(result.count);
 
     } catch (error) {
+
       console.error(error);
+
     }
   }
 
@@ -136,7 +218,7 @@ export class EmailsService {
         )
       );
 
-      await this.load();
+      await this.load(this.activeFolder());
 
       return result;
 

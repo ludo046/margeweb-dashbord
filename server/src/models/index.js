@@ -4,8 +4,10 @@ const sequelize = require('../config/database');
 const Prospect = require('./prospect.model');
 const Interaction = require('./interaction.model');
 const Email = require('./email.model');
+const Draft = require('./draft.model');
 
 // Historique commercial
+
 Prospect.hasMany(Interaction, {
   foreignKey: 'prospectId',
   as: 'interactions',
@@ -18,6 +20,7 @@ Interaction.belongsTo(Prospect, {
 });
 
 // Messagerie
+
 Prospect.hasMany(Email, {
   foreignKey: 'prospectId',
   as: 'emails',
@@ -29,9 +32,36 @@ Email.belongsTo(Prospect, {
   as: 'prospect'
 });
 
+// Brouillons associés aux prospects
+
+Prospect.hasMany(Draft, {
+  foreignKey: 'prospectId',
+  as: 'drafts',
+  onDelete: 'SET NULL'
+});
+
+Draft.belongsTo(Prospect, {
+  foreignKey: 'prospectId',
+  as: 'prospect'
+});
+
+// Brouillons associés aux messages d'origine
+
+Email.hasMany(Draft, {
+  foreignKey: 'originalEmailId',
+  as: 'drafts',
+  onDelete: 'SET NULL'
+});
+
+Draft.belongsTo(Email, {
+  foreignKey: 'originalEmailId',
+  as: 'originalEmail'
+});
+
 module.exports = {
   sequelize,
   Prospect,
   Interaction,
-  Email
+  Email,
+  Draft
 };

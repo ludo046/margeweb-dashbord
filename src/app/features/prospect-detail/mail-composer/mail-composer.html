@@ -15,7 +15,7 @@
         type="button"
         class="close-btn"
         aria-label="Fermer"
-        [disabled]="sending()"
+        [disabled]="busy()"
         (click)="close()">
         ×
       </button>
@@ -30,9 +30,10 @@
 
         <div class="mail-field">
 
-          <label>De</label>
+          <label for="sender">De</label>
 
           <input
+            id="sender"
             type="text"
             value="MargeWeb <contact@margeweb.fr>"
             readonly>
@@ -47,9 +48,10 @@
             id="recipient"
             type="email"
             name="recipient"
-            [(ngModel)]="recipient"
+            [ngModel]="recipient"
+            (ngModelChange)="recipient = $event; onFieldChange()"
             [readonly]="recipientLocked()"
-            [disabled]="sending()"
+            [disabled]="busy()"
             placeholder="contact@exemple.fr"
             required
             email>
@@ -64,8 +66,9 @@
             id="subject"
             type="text"
             name="subject"
-            [(ngModel)]="subject"
-            [disabled]="sending()"
+            [ngModel]="subject"
+            (ngModelChange)="subject = $event; onFieldChange()"
+            [disabled]="busy()"
             placeholder="Objet du message"
             maxlength="255"
             required>
@@ -79,8 +82,9 @@
           <textarea
             id="content"
             name="content"
-            [(ngModel)]="content"
-            [disabled]="sending()"
+            [ngModel]="content"
+            (ngModelChange)="content = $event; onFieldChange()"
+            [disabled]="busy()"
             placeholder="Rédigez votre message..."
             rows="14"
             required>
@@ -91,10 +95,67 @@
         @if (error()) {
 
           <div class="mail-error" role="alert">
+
             {{ error() }}
+
           </div>
 
         }
+
+        <div
+          class="save-status"
+          [class.saved]="saveState() === 'saved'"
+          [class.pending]="saveState() === 'pending'"
+          [class.saving]="saveState() === 'saving'"
+          [class.failed]="saveState() === 'error'"
+          role="status"
+          aria-live="polite">
+
+          @switch (saveState()) {
+
+            @case ('saving') {
+
+              <span class="save-spinner"></span>
+
+            }
+
+            @case ('saved') {
+
+              <span class="save-icon">✓</span>
+
+            }
+
+            @case ('error') {
+
+              <span class="save-icon">!</span>
+
+            }
+
+            @default {
+
+              <span class="save-dot"></span>
+
+            }
+
+          }
+
+          <span>{{ saveLabel() }}</span>
+
+          @if (saveState() === 'error') {
+
+            <button
+              type="button"
+              class="retry-btn"
+              [disabled]="busy()"
+              (click)="saveDraft()">
+
+              Réessayer
+
+            </button>
+
+          }
+
+        </div>
 
       </div>
 
@@ -102,25 +163,61 @@
 
         <button
           type="button"
-          class="secondary-btn"
-          [disabled]="sending()"
-          (click)="close()">
-          Annuler
+          class="delete-btn"
+          [disabled]="busy()"
+          (click)="discard()">
+
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true">
+
+            <path d="M3 6h18"/>
+            <path d="M8 6V4h8v2"/>
+            <path d="M19 6l-1 14H6L5 6"/>
+            <path d="M10 10v6"/>
+            <path d="M14 10v6"/>
+
+          </svg>
+
+          {{ deleting() ? 'Suppression...' : 'Supprimer' }}
+
         </button>
 
-        <button
-          type="submit"
-          class="primary-btn"
-          [disabled]="
-            mailForm.invalid ||
-            sending() ||
-            !subject.trim() ||
-            !content.trim()
-          ">
+        <div class="footer-actions">
 
-          {{ sending() ? 'Envoi en cours...' : '✉ Envoyer' }}
+          <button
+            type="button"
+            class="secondary-btn"
+            [disabled]="busy()"
+            (click)="close()">
 
-        </button>
+            {{ closing() ? 'Sauvegarde...' : 'Fermer' }}
+
+          </button>
+
+          <button
+            type="submit"
+            class="primary-btn"
+            [disabled]="
+              mailForm.invalid ||
+              busy() ||
+              !recipient.trim() ||
+              !subject.trim() ||
+              !content.trim()
+            ">
+
+            {{ sending() ? 'Envoi en cours...' : '✉ Envoyer' }}
+
+          </button>
+
+        </div>
 
       </footer>
 

@@ -22,7 +22,11 @@
         class="primary-btn"
         (click)="synchronize()"
         [disabled]="syncing() || loading()">
-        {{ syncing() ? 'Synchronisation...' : '↻ Synchroniser' }}
+
+        {{ syncing()
+          ? 'Synchronisation...'
+          : '↻ Synchroniser' }}
+
       </button>
 
     </div>
@@ -74,8 +78,8 @@
 
         <button
           class="folder-btn"
-          [class.active]="activeFolder() === 'INBOX'"
-          [attr.aria-current]="activeFolder() === 'INBOX' ? 'page' : null"
+          [class.active]="isInboxFolder()"
+          [attr.aria-current]="isInboxFolder() ? 'page' : null"
           (click)="changeFolder('INBOX')">
 
           <span class="folder-icon">✉</span>
@@ -93,8 +97,8 @@
 
         <button
           class="folder-btn"
-          [class.active]="activeFolder() === 'SENT'"
-          [attr.aria-current]="activeFolder() === 'SENT' ? 'page' : null"
+          [class.active]="isSentFolder()"
+          [attr.aria-current]="isSentFolder() ? 'page' : null"
           (click)="changeFolder('SENT')">
 
           <span class="folder-icon">➤</span>
@@ -104,11 +108,20 @@
 
         <button
           class="folder-btn"
-          title="Disponible prochainement"
-          disabled>
+          [class.active]="isDraftFolder()"
+          [attr.aria-current]="isDraftFolder() ? 'page' : null"
+          (click)="changeFolder('DRAFTS')">
 
           <span class="folder-icon">▤</span>
           <span class="folder-name">Brouillons</span>
+
+          @if (draftCount() > 0) {
+
+            <span class="folder-count draft-count">
+              {{ draftCount() }}
+            </span>
+
+          }
 
         </button>
 
@@ -141,7 +154,6 @@
         <div class="account-details">
 
           <strong>MargeWeb</strong>
-
           <span>contact@margeweb.fr</span>
 
         </div>
@@ -152,7 +164,7 @@
 
     <div
       class="mail-layout"
-      [class.has-selection]="selectedEmail()">
+      [class.has-selection]="selectedEmail() || selectedDraft()">
 
       <div class="inbox">
 
@@ -162,7 +174,7 @@
 
             <h3>{{ folderTitle() }}</h3>
 
-            @if (!isSentFolder() && unreadCount() > 0) {
+            @if (isInboxFolder() && unreadCount() > 0) {
 
               <span class="unread-badge">
                 {{ unreadCount() }}
@@ -170,19 +182,39 @@
 
             }
 
+            @if (isDraftFolder() && draftCount() > 0) {
+
+              <span class="unread-badge draft-count">
+                {{ draftCount() }}
+              </span>
+
+            }
+
           </div>
 
           <span class="account">
-            {{ emails().length }} message(s) chargé(s)
+
+            @if (isDraftFolder()) {
+
+              {{ drafts().length }} brouillon(s) enregistré(s)
+
+            } @else {
+
+              {{ emails().length }} message(s) chargé(s)
+
+            }
+
           </span>
 
           <input
             type="search"
-            placeholder="Rechercher un message..."
+            [placeholder]="isDraftFolder()
+              ? 'Rechercher un brouillon...'
+              : 'Rechercher un message...'"
             [ngModel]="search()"
             (ngModelChange)="search.set($event)">
 
-          @if (!isSentFolder()) {
+          @if (isInboxFolder()) {
 
             <div class="filters">
 
@@ -209,8 +241,88 @@
           @if (loading()) {
 
             <div class="empty-state">
-              Chargement des messages...
+              Chargement...
             </div>
+
+          } @else if (isDraftFolder()) {
+
+            @for (draft of filteredDrafts(); track draft.id) {
+
+              <button
+                class="mail-item draft-item"
+                [class.selected]="selectedDraftId() === draft.id"
+                (click)="selectDraft(draft)"
+                (dblclick)="editDraft(draft)">
+
+                <div class="avatar draft-avatar">
+                  ▤
+                </div>
+
+                <div class="mail-info">
+
+                  <div class="mail-top">
+
+                    <span class="sender">
+
+                      {{ draft.toEmail
+                        ? 'À : ' + draft.toEmail
+                        : 'Sans destinataire' }}
+
+                    </span>
+
+                    <span class="mail-date">
+
+                      {{ draft.updatedAt | date:'dd MMM, HH:mm':'':'fr-FR' }}
+
+                    </span>
+
+                  </div>
+
+                  <div class="subject">
+                    {{ draft.subject || '(Sans objet)' }}
+                  </div>
+
+                  <div class="preview">
+
+                    {{ draft.content || 'Aucun contenu' }}
+
+                  </div>
+
+                  <span class="draft-tag">
+
+                    {{ draftModeLabel(draft.mode) }}
+
+                  </span>
+
+                  @if (draft.prospect) {
+
+                    <span class="prospect-tag">
+                      {{ draft.prospect.name }}
+                    </span>
+
+                  }
+
+                </div>
+
+              </button>
+
+            } @empty {
+
+              <div class="empty-state">
+
+                @if (search()) {
+
+                  Aucun brouillon trouvé.
+
+                } @else {
+
+                  Aucun brouillon enregistré.
+
+                }
+
+              </div>
+
+            }
 
           } @else {
 
@@ -218,7 +330,7 @@
 
               <button
                 class="mail-item"
-                [class.unread]="!isSentFolder() && !email.isRead"
+                [class.unread]="isInboxFolder() && !email.isRead"
                 [class.selected]="selectedId() === email.id"
                 (click)="openEmail(email)">
 
@@ -268,7 +380,7 @@
 
                 </div>
 
-                @if (!isSentFolder() && !email.isRead) {
+                @if (isInboxFolder() && !email.isRead) {
 
                   <span class="unread-dot"></span>
 
@@ -292,7 +404,105 @@
 
       <div class="reader">
 
-        @if (selectedEmail(); as email) {
+        @if (selectedDraft(); as draft) {
+
+          <div class="reader-header">
+
+            <button
+              class="close-btn"
+              (click)="closeDraft()">
+              ← Retour
+            </button>
+
+            <div class="draft-reader-label">
+
+              <span class="draft-tag">Brouillon</span>
+
+              <span class="draft-mode">
+                {{ draftModeLabel(draft.mode) }}
+              </span>
+
+            </div>
+
+            <h2>
+              {{ draft.subject || '(Sans objet)' }}
+            </h2>
+
+            <div class="sender-details">
+
+              <div class="avatar large draft-avatar">
+                ▤
+              </div>
+
+              <div>
+
+                <strong>
+                  À : {{ draft.toEmail || 'Sans destinataire' }}
+                </strong>
+
+                <span>
+                  De : contact@margeweb.fr
+                </span>
+
+              </div>
+
+            </div>
+
+            <div class="received-date">
+
+              Dernière modification le
+
+              {{ draft.updatedAt | date:"dd MMMM yyyy 'à' HH:mm":'':'fr-FR' }}
+
+            </div>
+
+            @if (draft.prospect; as prospect) {
+
+              <a
+                class="linked-prospect"
+                [routerLink]="['/prospects', prospect.id]">
+
+                Voir le prospect : {{ prospect.name }}
+
+              </a>
+
+            }
+
+          </div>
+
+          <div class="mail-content">
+
+            {{ draft.content || 'Ce brouillon ne contient pas encore de message.' }}
+
+          </div>
+
+          <div class="reader-actions">
+
+            <button
+              class="primary-btn"
+              [disabled]="openingDraft() || deletingDraft()"
+              (click)="editDraft(draft)">
+
+              {{ openingDraft()
+                ? 'Ouverture...'
+                : '✎ Reprendre la rédaction' }}
+
+            </button>
+
+            <button
+              class="danger-btn"
+              [disabled]="openingDraft() || deletingDraft()"
+              (click)="deleteDraft(draft)">
+
+              {{ deletingDraft()
+                ? 'Suppression...'
+                : 'Supprimer' }}
+
+            </button>
+
+          </div>
+
+        } @else if (selectedEmail(); as email) {
 
           <div class="reader-header">
 
@@ -334,7 +544,7 @@
                   De : {{ email.fromEmail }}
                 </span>
 
-                @if (!isSentFolder()) {
+                @if (isInboxFolder()) {
 
                   <span>
                     À : {{ email.toEmail }}
@@ -384,7 +594,7 @@
 
           <div class="reader-actions">
 
-            @if (!isSentFolder()) {
+            @if (isInboxFolder()) {
 
               <button
                 class="primary-btn"
@@ -400,7 +610,7 @@
               ↪ Transférer
             </button>
 
-            @if (!isSentFolder()) {
+            @if (isInboxFolder()) {
 
               <button
                 class="secondary-btn"
@@ -420,13 +630,35 @@
 
           <div class="reader-empty">
 
-            <div class="mail-icon">✉</div>
+            @if (isDraftFolder()) {
 
-            <h3>Sélectionnez un message</h3>
+              <div class="mail-icon">▤</div>
 
-            <p>
-              Choisissez un e-mail pour afficher son contenu.
-            </p>
+              <h3>Sélectionnez un brouillon</h3>
+
+              <p>
+                Reprenez la rédaction d'un message enregistré.
+              </p>
+
+              <button
+                class="secondary-btn"
+                (click)="newMessage()">
+
+                + Nouveau message
+
+              </button>
+
+            } @else {
+
+              <div class="mail-icon">✉</div>
+
+              <h3>Sélectionnez un message</h3>
+
+              <p>
+                Choisissez un e-mail pour afficher son contenu.
+              </p>
+
+            }
 
           </div>
 
@@ -443,6 +675,7 @@
     <app-mail-composer
       [mode]="composerMode()"
       [originalEmail]="composerEmail()"
+      [draft]="composerDraft()"
       (closed)="closeComposer()"
       (sent)="onMailSent($event)">
     </app-mail-composer>

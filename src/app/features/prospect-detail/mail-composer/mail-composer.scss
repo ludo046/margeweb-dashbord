@@ -42,6 +42,11 @@
   color: white;
   font-size: 26px;
   cursor: pointer;
+
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
 }
 
 .mail-fields {
@@ -73,6 +78,11 @@
     font: inherit;
     font-size: 14px;
     outline-color: #15b8a6;
+
+    &:disabled {
+      background: #f8fafc;
+      cursor: not-allowed;
+    }
   }
 
   input[readonly] {
@@ -87,16 +97,105 @@
   }
 }
 
+// État de la sauvegarde
+
+.save-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 20px;
+  font-size: 12px;
+  color: #8190a6;
+
+  &.saved {
+    color: #087f73;
+  }
+
+  &.pending {
+    color: #8190a6;
+  }
+
+  &.saving {
+    color: #64748b;
+  }
+
+  &.failed {
+    color: #b91c1c;
+  }
+}
+
+.save-icon {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.save-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  margin: 0 5px;
+}
+
+.save-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #15b8a6;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.retry-btn {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+}
+
+// Pied de la fenêtre
+
 .mail-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 20px 25px;
   border-top: 1px solid #e2e8f0;
 }
 
+.footer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .primary-btn,
-.secondary-btn {
+.secondary-btn,
+.delete-btn {
   padding: 12px 20px;
   border-radius: 8px;
   font-size: 13px;
@@ -113,12 +212,35 @@
   background: #15b8a6;
   color: #111d35;
   border: 1px solid #15b8a6;
+
+  &:hover:not(:disabled) {
+    background: #11a897;
+  }
 }
 
 .secondary-btn {
   background: white;
   color: #17243b;
   border: 1px solid #e2e8f0;
+
+  &:hover:not(:disabled) {
+    background: #f8fafc;
+  }
+}
+
+.delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: #8190a6;
+  border: 1px solid transparent;
+  padding: 10px 12px;
+
+  &:hover:not(:disabled) {
+    background: #fef2f2;
+    color: #b91c1c;
+  }
 }
 
 .mail-error {
@@ -129,10 +251,16 @@
   font-size: 13px;
 }
 
+// Responsive
+
 @media (max-width: 600px) {
 
   .mail-overlay {
     padding: 10px;
+  }
+
+  .mail-header {
+    padding: 16px;
   }
 
   .mail-fields {
@@ -142,4 +270,23 @@
   .mail-footer {
     padding: 16px;
   }
+
+  .footer-actions {
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    padding: 10px 14px;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .save-spinner {
+    animation: none;
+  }
+
 }

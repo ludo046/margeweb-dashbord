@@ -1,0 +1,300 @@
+
+<section class="messaging">
+
+  <header class="page-heading">
+
+    <div>
+      <span class="eyebrow">COMMUNICATION</span>
+      <h2>Messagerie</h2>
+      <p>Gérez vos échanges avec vos prospects.</p>
+    </div>
+
+    <div class="header-actions">
+
+      <button
+        class="primary-btn"
+        (click)="newMessage()">
+        + Nouveau message
+      </button>
+
+      <button
+        class="secondary-btn"
+        (click)="refresh()"
+        [disabled]="loading() || syncing()">
+        Actualiser
+      </button>
+
+      <button
+        class="primary-btn"
+        (click)="synchronize()"
+        [disabled]="syncing() || loading()">
+        {{ syncing() ? 'Synchronisation...' : '↻ Synchroniser' }}
+      </button>
+
+    </div>
+
+  </header>
+
+  @if (error() || loadError()) {
+    <div class="error-message" role="alert">
+      {{ error() || loadError() }}
+    </div>
+  }
+
+  @if (notification()) {
+    <div class="success-message" role="status">
+      {{ notification() }}
+    </div>
+  }
+
+  <div
+    class="mail-layout"
+    [class.has-selection]="selectedEmail()">
+
+    <div class="inbox">
+
+      <div class="inbox-header">
+
+        <div class="inbox-title">
+
+          <h3>Boîte de réception</h3>
+
+          @if (unreadCount() > 0) {
+            <span class="unread-badge">
+              {{ unreadCount() }}
+            </span>
+          }
+
+        </div>
+
+        <span class="account">
+          contact@margeweb.fr
+        </span>
+
+        <input
+          type="search"
+          placeholder="Rechercher un message..."
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)">
+
+        <div class="filters">
+
+          <button
+            [class.active]="!unreadOnly()"
+            (click)="unreadOnly.set(false)">
+            Tous
+          </button>
+
+          <button
+            [class.active]="unreadOnly()"
+            (click)="unreadOnly.set(true)">
+            Non lus
+          </button>
+
+        </div>
+
+      </div>
+
+      <div class="mail-list">
+
+        @if (loading()) {
+
+          <div class="empty-state">
+            Chargement des messages...
+          </div>
+
+        } @else {
+
+          @for (email of filteredEmails(); track email.id) {
+
+            <button
+              class="mail-item"
+              [class.unread]="!email.isRead"
+              [class.selected]="selectedId() === email.id"
+              (click)="openEmail(email)">
+
+              <div class="avatar">
+                {{ (email.fromName || email.fromEmail || '?').charAt(0).toUpperCase() }}
+              </div>
+
+              <div class="mail-info">
+
+                <div class="mail-top">
+
+                  <span class="sender">
+                    {{ email.fromName || email.fromEmail }}
+                  </span>
+
+                  <span class="mail-date">
+                    {{ email.receivedAt | date:'dd MMM, HH:mm':'':'fr-FR' }}
+                  </span>
+
+                </div>
+
+                <div class="subject">
+                  {{ email.subject }}
+                </div>
+
+                <div class="preview">
+                  {{ email.textContent }}
+                </div>
+
+                @if (email.prospect) {
+
+                  <span class="prospect-tag">
+                    Prospect associé
+                  </span>
+
+                }
+
+              </div>
+
+              @if (!email.isRead) {
+                <span class="unread-dot"></span>
+              }
+
+            </button>
+
+          } @empty {
+
+            <div class="empty-state">
+              Aucun message trouvé.
+            </div>
+
+          }
+
+        }
+
+      </div>
+
+    </div>
+
+    <div class="reader">
+
+      @if (selectedEmail(); as email) {
+
+        <div class="reader-header">
+
+          <button
+            class="close-btn"
+            (click)="closeEmail()">
+            ← Retour
+          </button>
+
+          <h2>
+            {{ email.subject || '(Sans objet)' }}
+          </h2>
+
+          <div class="sender-details">
+
+            <div class="avatar">
+              {{ (email.fromName || email.fromEmail || '?').charAt(0).toUpperCase() }}
+            </div>
+
+            <div>
+
+              <strong>
+                {{ email.fromName || email.fromEmail }}
+              </strong>
+
+              <div>
+                {{ email.fromEmail }}
+              </div>
+
+              <div>
+                À : {{ email.toEmail }}
+              </div>
+
+            </div>
+
+          </div>
+
+          <div class="received-date">
+            {{ email.receivedAt | date:"dd MMMM yyyy 'à' HH:mm":'':'fr-FR' }}
+          </div>
+
+          @if (email.prospect; as prospect) {
+
+            <a
+              class="prospect-tag"
+              [routerLink]="['/prospects', prospect.id]">
+              Voir le prospect : {{ prospect.name }}
+            </a>
+
+          }
+
+        </div>
+
+        <div class="mail-content">
+
+          {{ email.textContent || 'Aucun contenu texte disponible.' }}
+
+        </div>
+
+        @if (email.hasAttachments) {
+
+          <div class="attachment-info">
+            📎 Ce message contient des pièces jointes.
+          </div>
+
+        }
+
+        <div class="reader-actions">
+
+          <button
+            class="primary-btn"
+            (click)="replyTo(email)">
+            ↶ Répondre
+          </button>
+
+          <button
+            class="secondary-btn"
+            (click)="forwardEmail(email)">
+            ↪ Transférer
+          </button>
+
+          <button
+            class="secondary-btn"
+            (click)="toggleRead(email)">
+
+            {{ email.isRead
+              ? 'Marquer comme non lu'
+              : 'Marquer comme lu' }}
+
+          </button>
+
+        </div>
+
+      } @else {
+
+        <div class="reader-empty">
+
+          <div class="empty-icon">✉</div>
+
+          <h3>Sélectionnez un message</h3>
+
+          <p>
+            Choisissez un e-mail dans votre boîte de réception
+            pour afficher son contenu.
+          </p>
+
+        </div>
+
+      }
+
+    </div>
+
+  </div>
+
+  @if (composerOpen()) {
+
+    <app-mail-composer
+      [mode]="composerMode()"
+      [originalEmail]="composerEmail()"
+      (closed)="closeComposer()"
+      (sent)="onMailSent($event)">
+    </app-mail-composer>
+
+  }
+
+</section>

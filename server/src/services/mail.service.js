@@ -21,16 +21,33 @@ async function verifyConnection() {
   return true;
 }
 
-async function sendMail({ to, subject, text, html }) {
+async function sendMail({
+  to,
+  subject,
+  text,
+  html,
+  inReplyTo,
+  references
+}) {
+
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    const error = new Error('Messagerie SMTP non configurée.');
+    error.status = 503;
+    throw error;
+  }
+
   return transporter.sendMail({
     from: {
       name: process.env.SMTP_FROM_NAME || 'MargeWeb',
       address: process.env.SMTP_USER
     },
+
     to,
     subject,
     text,
-    html
+    html,
+    inReplyTo,
+    references
   });
 }
 

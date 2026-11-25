@@ -35,6 +35,15 @@
           </span>
         }
       </a>
+      <a routerLink="/messaging" routerLinkActive="active">
+        Messagerie
+
+        @if (unreadEmailCount() > 0) {
+          <span class="notification-count">
+            {{ unreadEmailCount() }}
+          </span>
+        }
+      </a>
       <a class="disabled">♧ Clients</a>
       <a class="disabled">▣ Abonnements</a>
     </nav>

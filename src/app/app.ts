@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { inject } from '@angular/core';
 import { ProspectsService } from './core/services/prospects';
+import { EmailsService } from './core/services/emails';
 
 @Component({
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
@@ -15,4 +16,7 @@ export class App {
 
   readonly urgentFollowUpCount =
   this.prospectsService.urgentFollowUpCount;
+
+  private readonly emailsService = inject(EmailsService);
+  readonly unreadEmailCount = this.emailsService.unreadCount;
 }

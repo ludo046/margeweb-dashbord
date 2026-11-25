@@ -5,23 +5,18 @@
     class="mail-modal"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="mail-title"
-  >
+    aria-label="Rédaction d'un e-mail">
 
     <header class="mail-header">
 
-      <div>
-        <span class="eyebrow">MESSAGERIE MARGEWEB</span>
-        <h2 id="mail-title">Nouveau message</h2>
-      </div>
+      <h2>{{ title() }}</h2>
 
       <button
         type="button"
         class="close-btn"
         aria-label="Fermer"
         [disabled]="sending()"
-        (click)="close()"
-      >
+        (click)="close()">
         ×
       </button>
 
@@ -29,84 +24,103 @@
 
     <form
       #mailForm="ngForm"
-      (ngSubmit)="mailForm.valid && send()"
-    >
+      (ngSubmit)="mailForm.valid && send()">
 
-      <div class="mail-address">
-        <span>De</span>
-        <strong>contact@margeweb.fr</strong>
-      </div>
+      <div class="mail-fields">
 
-      <div class="mail-address">
-        <span>À</span>
-        <strong>{{ prospect().email }}</strong>
-      </div>
+        <div class="mail-field">
 
-      <div class="mail-body">
+          <label>De</label>
 
-        <label for="mail-subject">Objet</label>
+          <input
+            type="text"
+            value="MargeWeb <contact@margeweb.fr>"
+            readonly>
 
-        <input
-          id="mail-subject"
-          name="subject"
-          [(ngModel)]="subject"
-          placeholder="Objet de votre message"
-          maxlength="255"
-          [disabled]="sending()"
-          required
-        />
+        </div>
 
-        <label for="mail-content">Message</label>
+        <div class="mail-field">
 
-        <textarea
-          id="mail-content"
-          name="content"
-          [(ngModel)]="content"
-          placeholder="Bonjour..."
-          rows="12"
-          [disabled]="sending()"
-          required
-        ></textarea>
+          <label for="recipient">À</label>
+
+          <input
+            id="recipient"
+            type="email"
+            name="recipient"
+            [(ngModel)]="recipient"
+            [readonly]="recipientLocked()"
+            [disabled]="sending()"
+            placeholder="contact@exemple.fr"
+            required
+            email>
+
+        </div>
+
+        <div class="mail-field">
+
+          <label for="subject">Objet</label>
+
+          <input
+            id="subject"
+            type="text"
+            name="subject"
+            [(ngModel)]="subject"
+            [disabled]="sending()"
+            placeholder="Objet du message"
+            maxlength="255"
+            required>
+
+        </div>
+
+        <div class="mail-field">
+
+          <label for="content">Message</label>
+
+          <textarea
+            id="content"
+            name="content"
+            [(ngModel)]="content"
+            [disabled]="sending()"
+            placeholder="Rédigez votre message..."
+            rows="14"
+            required>
+          </textarea>
+
+        </div>
 
         @if (error()) {
-          <div class="error-message" role="alert">
+
+          <div class="mail-error" role="alert">
             {{ error() }}
           </div>
+
         }
 
       </div>
 
       <footer class="mail-footer">
 
-        <span class="info">
-          Enregistrement automatique dans l'historique.
-        </span>
+        <button
+          type="button"
+          class="secondary-btn"
+          [disabled]="sending()"
+          (click)="close()">
+          Annuler
+        </button>
 
-        <div class="actions">
+        <button
+          type="submit"
+          class="primary-btn"
+          [disabled]="
+            mailForm.invalid ||
+            sending() ||
+            !subject.trim() ||
+            !content.trim()
+          ">
 
-          <button
-            type="button"
-            class="secondary-btn"
-            [disabled]="sending()"
-            (click)="close()"
-          >
-            Annuler
-          </button>
+          {{ sending() ? 'Envoi en cours...' : '✉ Envoyer' }}
 
-          <button
-            type="submit"
-            class="primary-btn"
-            [disabled]="
-              sending() ||
-              mailForm.invalid ||
-              !subject.trim() ||
-              !content.trim()
-            "
-          >
-            {{ sending() ? 'Envoi en cours...' : 'Envoyer →' }}
-          </button>
-
-        </div>
+        </button>
 
       </footer>
 

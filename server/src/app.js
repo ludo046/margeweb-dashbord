@@ -6,6 +6,7 @@ const { sequelize } = require('./models');
 const prospectRoutes = require('./routes/prospect.routes');
 const errorMiddleware = require('./middlewares/error.middleware');
 const interactionRoutes = require('./routes/interaction.routes');
+const emailRoutes = require('./routes/email.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,7 @@ app.use(
   '/api/prospects/:prospectId/interactions',
   interactionRoutes
 );
+app.use('/api/emails', emailRoutes);
 
 // Route introuvable
 app.use((req, res) => {

@@ -40,6 +40,12 @@ export const routes: Routes = [
       .then(m => m.FollowUps)
   },
   {
+  path: 'messaging',
+  loadComponent: () =>
+    import('./features/messaging/messaging')
+      .then(m => m.Messaging)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

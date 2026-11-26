@@ -24,124 +24,403 @@ const allowedFields = [
   'notes'
 ];
 
+const editableStatuses = [
+  'Actif',
+  'Inactif'
+];
+
+// Nettoyage des données
+
 function sanitizeData(body = {}) {
+
   const data = {};
 
   for (const field of allowedFields) {
-    if (Object.prototype.hasOwnProperty.call(body, field)) {
-      data[field] = typeof body[field] === 'string'
-        ? body[field].trim()
-        : body[field];
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        body,
+        field
+      )
+    ) {
+
+      data[field] =
+        typeof body[field] === 'string'
+          ? body[field].trim()
+          : body[field];
+
     }
+
   }
 
   return data;
+
+}
+
+// Vérification du corps de la requête
+
+function isValidBody(body) {
+
+  return (
+    body !== null &&
+    typeof body === 'object' &&
+    !Array.isArray(body)
+  );
+
+}
+
+// Vérification du nom
+
+function isValidName(name) {
+
+  return (
+    typeof name === 'string' &&
+    name.trim().length > 0
+  );
+
 }
 
 // Récupérer tous les clients
 
 exports.findAll = async (req, res, next) => {
+
   try {
+
     const clients = await Client.findAll({
       order: [['name', 'ASC']]
     });
 
     res.json(clients);
+
   } catch (error) {
+
     next(error);
+
   }
+
 };
 
 // Récupérer un client
 
 exports.findOne = async (req, res, next) => {
+
   try {
-    const client = await Client.findByPk(req.params.id, {
-      include: [
-        {
-          model: Prospect,
-          as: 'prospect'
-        }
-      ]
-    });
+
+    const client = await Client.findByPk(
+      req.params.id,
+      {
+        include: [
+          {
+            model: Prospect,
+            as: 'prospect'
+          }
+        ]
+      }
+    );
 
     if (!client) {
+
       return res.status(404).json({
         message: 'Client introuvable.'
       });
+
     }
 
     res.json(client);
+
   } catch (error) {
+
     next(error);
+
   }
+
 };
 
 // Créer un client manuellement
 
 exports.create = async (req, res, next) => {
+
   try {
+
+    if (!isValidBody(req.body)) {
+
+      return res.status(400).json({
+        message: 'Les données du client sont invalides.'
+      });
+
+    }
+
     const data = sanitizeData(req.body);
 
-    if (!data.name) {
+    if (!isValidName(data.name)) {
+
       return res.status(400).json({
         message: 'Le nom du client est obligatoire.'
       });
+
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        data,
+        'status'
+      ) &&
+      !editableStatuses.includes(data.status)
+    ) {
+
+      return res.status(400).json({
+        message:
+          'Un nouveau client doit être actif ou inactif.'
+      });
+
     }
 
     const client = await Client.create(data);
 
     res.status(201).json(client);
+
   } catch (error) {
+
     next(error);
+
   }
+
 };
 
-// Modifier un client
+// Modifier ou réactiver un client
 
 exports.update = async (req, res, next) => {
-  try {
-    const client = await Client.findByPk(req.params.id);
 
-    if (!client) {
-      return res.status(404).json({
-        message: 'Client introuvable.'
+  try {
+
+    if (!isValidBody(req.body)) {
+
+      return res.status(400).json({
+        message: 'Les données du client sont invalides.'
       });
+
     }
 
-    await client.update(sanitizeData(req.body));
+    const data = sanitizeData(req.body);
 
-    res.json(client);
+    const result = await sequelize.transaction(
+      async (transaction) => {
+
+        const client = await Client.findByPk(
+          req.params.id,
+          { transaction }
+        );
+
+        if (!client) {
+
+          return {
+            status: 404,
+            message: 'Client introuvable.'
+          };
+
+        }
+
+        // Client archivé :
+        // seule la réactivation est autorisée
+
+        if (client.status === 'Archivé') {
+
+          const fields = Object.keys(req.body);
+
+          const isReactivation =
+            fields.length === 1 &&
+            fields[0] === 'status' &&
+            data.status === 'Actif';
+
+          if (!isReactivation) {
+
+            return {
+              status: 409,
+              message:
+                'Ce client est archivé. Réactivez-le avant de modifier ses informations.'
+            };
+
+          }
+
+          await client.update(
+            {
+              status: 'Actif'
+            },
+            { transaction }
+          );
+
+          return {
+            status: 200,
+            client
+          };
+
+        }
+
+        // Vérifier les données à modifier
+
+        if (Object.keys(data).length === 0) {
+
+          return {
+            status: 400,
+            message:
+              'Aucune information à modifier.'
+          };
+
+        }
+
+        // Vérifier le nom si celui-ci est modifié
+
+        if (
+          Object.prototype.hasOwnProperty.call(
+            data,
+            'name'
+          ) &&
+          !isValidName(data.name)
+        ) {
+
+          return {
+            status: 400,
+            message:
+              'Le nom du client est obligatoire.'
+          };
+
+        }
+
+        // L'archivage doit passer par la route dédiée
+
+        if (data.status === 'Archivé') {
+
+          return {
+            status: 409,
+            message:
+              'Utilisez la procédure d’archivage pour archiver ce client.'
+          };
+
+        }
+
+        // Vérifier les statuts autorisés
+
+        if (
+          Object.prototype.hasOwnProperty.call(
+            data,
+            'status'
+          ) &&
+          !editableStatuses.includes(data.status)
+        ) {
+
+          return {
+            status: 400,
+            message: 'Le statut du client est invalide.'
+          };
+
+        }
+
+        // Enregistrer les modifications
+
+        await client.update(
+          data,
+          { transaction }
+        );
+
+        return {
+          status: 200,
+          client
+        };
+
+      }
+    );
+
+    if (result.status !== 200) {
+
+      return res.status(result.status).json({
+        message: result.message
+      });
+
+    }
+
+    res.json(result.client);
+
   } catch (error) {
+
     next(error);
+
   }
+
 };
 
 // Archiver un client
 
 exports.archive = async (req, res, next) => {
-  try {
-    const client = await Client.findByPk(req.params.id);
 
-    if (!client) {
-      return res.status(404).json({
-        message: 'Client introuvable.'
+  try {
+
+    const result = await sequelize.transaction(
+      async (transaction) => {
+
+        const client = await Client.findByPk(
+          req.params.id,
+          { transaction }
+        );
+
+        if (!client) {
+
+          return {
+            status: 404,
+            message: 'Client introuvable.'
+          };
+
+        }
+
+        // Empêcher un double archivage
+
+        if (client.status === 'Archivé') {
+
+          return {
+            status: 409,
+            message: 'Ce client est déjà archivé.'
+          };
+
+        }
+
+        // Archivage sans suppression des données
+
+        await client.update(
+          {
+            status: 'Archivé'
+          },
+          { transaction }
+        );
+
+        return {
+          status: 200,
+          client
+        };
+
+      }
+    );
+
+    if (result.status !== 200) {
+
+      return res.status(result.status).json({
+        message: result.message
       });
+
     }
 
-    await client.update({
-      status: 'Archivé'
-    });
+    res.json(result.client);
 
-    res.json(client);
   } catch (error) {
+
     next(error);
+
   }
+
 };
 
 // Convertir un prospect en client
 
 exports.convertProspect = async (req, res, next) => {
+
   try {
 
     const result = await sequelize.transaction(
@@ -155,27 +434,34 @@ exports.convertProspect = async (req, res, next) => {
         );
 
         if (!prospect) {
+
           return {
             status: 404,
             message: 'Prospect introuvable.'
           };
+
         }
 
         // 2. Vérifier qu'il n'est pas déjà client
 
         const existingClient = await Client.findOne({
+
           where: {
             prospectId: prospect.id
           },
+
           transaction
+
         });
 
         if (existingClient) {
+
           return {
             status: 409,
             message: 'Ce prospect est déjà un client.',
             client: existingClient
           };
+
         }
 
         // 3. Créer la fiche client
@@ -332,7 +618,8 @@ exports.convertProspect = async (req, res, next) => {
     if (error.name === 'SequelizeUniqueConstraintError') {
 
       return res.status(409).json({
-        message: 'Ce prospect est déjà associé à un client.'
+        message:
+          'Ce prospect est déjà associé à un client.'
       });
 
     }

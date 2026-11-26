@@ -7,6 +7,7 @@ const {
 } = require('../models');
 
 const mailService = require('../services/mail.service');
+const imapService = require('../services/imap.service');
 
 // ==========================================
 // VALIDATION
@@ -30,12 +31,14 @@ function isValidEmail(email) {
 function isValidContent(subject, content) {
 
   return (
+
     typeof subject === 'string' &&
     typeof content === 'string' &&
     subject.trim().length > 0 &&
     content.trim().length > 0 &&
     subject.length <= 255 &&
     !/[\r\n]/.test(subject)
+
   );
 
 }
@@ -50,9 +53,20 @@ async function findContactByEmail(email) {
 
   if (!address) return null;
 
+  const ownAddresses = new Set([
+    normalizeEmail(process.env.SMTP_USER),
+    normalizeEmail(process.env.IMAP_USER)
+  ]);
+
+  if (ownAddresses.has(address)) {
+    return null;
+  }
+
   const [prospects, clients] = await Promise.all([
+
     Prospect.findAll(),
     Client.findAll()
+
   ]);
 
   const clientsByProspect = new Map();
@@ -62,8 +76,10 @@ async function findContactByEmail(email) {
     if (client.prospectId != null) {
 
       clientsByProspect.set(
+
         client.prospectId,
         client
+
       );
 
     }
@@ -77,7 +93,9 @@ async function findContactByEmail(email) {
   for (const prospect of prospects) {
 
     if (normalizeEmail(prospect.email) !== address) {
+
       continue;
+
     }
 
     const linkedClient =
@@ -110,7 +128,9 @@ async function findContactByEmail(email) {
   for (const client of clients) {
 
     if (normalizeEmail(client.email) !== address) {
+
       continue;
+
     }
 
     matches.set(`client:${client.id}`, {
@@ -125,13 +145,15 @@ async function findContactByEmail(email) {
   // Ne pas rattacher un message ambigu
 
   return matches.size === 1
+
     ? [...matches.values()][0]
+
     : null;
 
 }
 
 // ==========================================
-// ENVOI ET HISTORIQUE
+// ENVOI, HISTORIQUE ET COPIE IMAP
 // ==========================================
 
 async function sendAndRecord({
@@ -148,7 +170,9 @@ async function sendAndRecord({
   if (!isValidEmail(recipient)) {
 
     return res.status(400).json({
+
       message: 'Adresse e-mail invalide.'
+
     });
 
   }
@@ -156,7 +180,9 @@ async function sendAndRecord({
   if (!isValidContent(subject, content)) {
 
     return res.status(400).json({
+
       message: 'Le sujet ou le contenu est invalide.'
+
     });
 
   }
@@ -164,16 +190,21 @@ async function sendAndRecord({
   const messageId = originalEmail?.messageId;
 
   const validMessageId =
+
     typeof messageId === 'string' &&
+
     /^<[^<>\s]+>$/.test(messageId);
 
-  // Envoi SMTP
+  // ========================================
+  // 1. ENVOI SMTP
+  // ========================================
 
   const result = await mailService.sendMail({
 
     to: recipient,
 
     subject: subject.trim(),
+
     text: content.trim(),
 
     inReplyTo: validMessageId
@@ -189,22 +220,35 @@ async function sendAndRecord({
   if (!result.accepted?.length) {
 
     return res.status(502).json({
+
       message: 'Le serveur SMTP a refusé le destinataire.'
+
     });
 
   }
 
+  // À partir de ce point, le message a été
+  // accepté par le serveur SMTP.
+  //
+  // Une erreur ultérieure ne doit jamais
+  // provoquer un nouvel envoi.
+
   let interaction = null;
 
-  // Le message est accepté par SMTP.
-  // Une erreur d'historique ne doit pas
-  // provoquer un nouvel envoi.
+  let sentSaved = false;
+
+  const warnings = [];
+
+  // ========================================
+  // 2. HISTORIQUE COMMERCIAL
+  // ========================================
 
   try {
 
     if (contact) {
 
       interaction = await sequelize.transaction(
+
         async transaction => {
 
           let prospectId =
@@ -244,6 +288,7 @@ async function sendAndRecord({
             type: 'email_sent',
 
             subject: subject.trim(),
+
             content: content.trim(),
 
             occurredAt: new Date()
@@ -251,41 +296,103 @@ async function sendAndRecord({
           }, { transaction });
 
         }
+
       );
 
     }
 
-    return res.status(201).json({
-
-      success: true,
-
-      message: 'E-mail accepté par le serveur SMTP.',
-
-      messageId: result.messageId,
-
-      interaction
-
-    });
-
   } catch (historyError) {
 
     console.error(
+
       'Erreur d’enregistrement de l’historique :',
+
       historyError
+
     );
+
+    warnings.push(
+
+      'L’historique commercial n’a pas pu être enregistré.'
+
+    );
+
+  }
+
+  // ========================================
+  // 3. ENREGISTREMENT DANS ENVOYÉS
+  // ========================================
+
+  try {
+
+    await imapService.appendSentMessage(
+
+      result.raw
+
+    );
+
+    sentSaved = true;
+
+  } catch (imapError) {
+
+    console.error(
+
+      'Erreur d’enregistrement dans Envoyés :',
+
+      imapError
+
+    );
+
+    warnings.push(
+
+      'La copie du message dans Envoyés n’a pas pu être confirmée.'
+
+    );
+
+  }
+
+  // ========================================
+  // 4. RETOURNER LE RÉSULTAT
+  // ========================================
+
+  if (warnings.length > 0) {
 
     return res.status(200).json({
 
       success: true,
 
-      warning:
-        'E-mail envoyé, mais historique non enregistré. Ne pas renvoyer.',
+      message:
+        'E-mail accepté par le serveur SMTP.',
 
-      messageId: result.messageId
+      warning:
+        'E-mail accepté par SMTP. ' +
+        warnings.join(' ') +
+        ' Ne pas renvoyer ce message.',
+
+      messageId: result.messageId,
+
+      sentSaved,
+
+      interaction
 
     });
 
   }
+
+  return res.status(201).json({
+
+    success: true,
+
+    message:
+      'E-mail envoyé et enregistré dans Envoyés.',
+
+    messageId: result.messageId,
+
+    sentSaved,
+
+    interaction
+
+  });
 
 }
 
@@ -298,7 +405,9 @@ function handleError(error, res, next) {
   if (error.status === 503) {
 
     return res.status(503).json({
+
       message: error.message
+
     });
 
   }
@@ -316,13 +425,17 @@ exports.sendToProspect = async (req, res, next) => {
   try {
 
     const prospect = await Prospect.findByPk(
+
       req.params.id
+
     );
 
     if (!prospect) {
 
       return res.status(404).json({
+
         message: 'Prospect introuvable.'
+
       });
 
     }
@@ -330,7 +443,9 @@ exports.sendToProspect = async (req, res, next) => {
     const linkedClient = await Client.findOne({
 
       where: {
+
         prospectId: prospect.id
+
       }
 
     });
@@ -369,8 +484,11 @@ exports.sendToProspect = async (req, res, next) => {
       content,
 
       contact: {
+
         prospectId: prospect.id,
+
         clientId: null
+
       },
 
       res
@@ -394,13 +512,17 @@ exports.sendToClient = async (req, res, next) => {
   try {
 
     const client = await Client.findByPk(
+
       req.params.id
+
     );
 
     if (!client) {
 
       return res.status(404).json({
+
         message: 'Client introuvable.'
+
       });
 
     }
@@ -439,6 +561,7 @@ exports.sendToClient = async (req, res, next) => {
       contact: {
 
         prospectId: client.prospectId ?? null,
+
         clientId: client.id
 
       },
@@ -464,18 +587,25 @@ exports.sendNew = async (req, res, next) => {
   try {
 
     const {
+
       to,
       subject,
       content
+
     } = req.body || {};
 
     if (
+
       typeof to !== 'string' ||
+
       !isValidEmail(to.trim())
+
     ) {
 
       return res.status(400).json({
+
         message: 'Adresse e-mail invalide.'
+
       });
 
     }
@@ -483,7 +613,9 @@ exports.sendNew = async (req, res, next) => {
     const recipient = to.trim();
 
     const contact = await findContactByEmail(
+
       recipient
+
     );
 
     await sendAndRecord({
@@ -516,13 +648,17 @@ exports.reply = async (req, res, next) => {
   try {
 
     const email = await Email.findByPk(
+
       req.params.id
+
     );
 
     if (!email || email.folder !== 'INBOX') {
 
       return res.status(404).json({
+
         message: 'Message reçu introuvable.'
+
       });
 
     }
@@ -530,6 +666,7 @@ exports.reply = async (req, res, next) => {
     const { subject, content } = req.body || {};
 
     const recipient =
+
       email.fromEmail?.trim() || '';
 
     let contact = null;
@@ -538,13 +675,17 @@ exports.reply = async (req, res, next) => {
     // du message d'origine.
 
     if (
+
       email.prospectId != null ||
+
       email.clientId != null
+
     ) {
 
       contact = {
 
         prospectId: email.prospectId ?? null,
+
         clientId: email.clientId ?? null
 
       };
@@ -552,7 +693,9 @@ exports.reply = async (req, res, next) => {
     } else {
 
       contact = await findContactByEmail(
+
         recipient
+
       );
 
     }

@@ -2,6 +2,7 @@ import {
   Component,
   inject,
   signal,
+  computed,
   OnInit
 } from '@angular/core';
 
@@ -13,6 +14,8 @@ import {
   Router,
   RouterLink
 } from '@angular/router';
+
+import { HttpErrorResponse } from '@angular/common/http';
 
 import {
   Client,
@@ -81,9 +84,64 @@ export class ClientDetail implements OnInit {
 
   readonly statuses: ClientStatus[] = [
     'Actif',
-    'Inactif',
-    'Archivé'
+    'Inactif'
   ];
+
+  // État du client
+
+  readonly isArchived = computed(() =>
+    this.client()?.status === 'Archivé'
+  );
+
+  readonly busy = computed(() =>
+    this.loading() ||
+    this.saving() ||
+    this.archiving()
+  );
+
+  // Autorisations
+
+  readonly canEdit = computed(() =>
+    !this.busy() &&
+    !this.mailOpen() &&
+    !this.confirmArchive() &&
+    (
+      this.isNew ||
+      (
+        !!this.client() &&
+        !this.isArchived()
+      )
+    )
+  );
+
+  readonly canArchive = computed(() =>
+    !this.isNew &&
+    !!this.client() &&
+    !this.isArchived() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen()
+  );
+
+  readonly canReactivate = computed(() =>
+    !this.isNew &&
+    !!this.client() &&
+    this.isArchived() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen() &&
+    !this.confirmArchive()
+  );
+
+  readonly canSendMail = computed(() =>
+    !this.isNew &&
+    !!this.client()?.email?.trim() &&
+    !this.isArchived() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen() &&
+    !this.confirmArchive()
+  );
 
   draft: Client = this.emptyClient();
 
@@ -137,6 +195,26 @@ export class ClientDetail implements OnInit {
 
   }
 
+  // Gestion des erreurs
+
+  private getErrorMessage(
+    error: unknown,
+    fallback: string
+  ): string {
+
+    if (
+      error instanceof HttpErrorResponse &&
+      typeof error.error?.message === 'string'
+    ) {
+
+      return error.error.message;
+
+    }
+
+    return fallback;
+
+  }
+
   // Chargement de la fiche
 
   async loadClient(): Promise<void> {
@@ -153,12 +231,22 @@ export class ClientDetail implements OnInit {
       this.client.set(client);
       this.draft = { ...client };
 
+      if (client.status === 'Archivé') {
+
+        this.editing.set(false);
+        this.confirmArchive.set(false);
+
+      }
+
     } catch (error) {
 
       console.error(error);
 
       this.error.set(
-        'Impossible de récupérer les informations du client.'
+        this.getErrorMessage(
+          error,
+          'Impossible de récupérer les informations du client.'
+        )
       );
 
     } finally {
@@ -175,7 +263,12 @@ export class ClientDetail implements OnInit {
 
     const client = this.client();
 
-    if (!client || this.mailOpen()) return;
+    if (
+      !client ||
+      !this.canEdit()
+    ) {
+      return;
+    }
 
     this.draft = { ...client };
 
@@ -218,10 +311,24 @@ export class ClientDetail implements OnInit {
   async save(): Promise<void> {
 
     if (
-      this.saving() ||
+      !this.editing() ||
+      !this.canEdit() ||
       !this.draft.name.trim()
     ) {
       return;
+    }
+
+    if (
+      this.draft.status !== 'Actif' &&
+      this.draft.status !== 'Inactif'
+    ) {
+
+      this.error.set(
+        'Utilisez la procédure d’archivage pour archiver un client.'
+      );
+
+      return;
+
     }
 
     this.saving.set(true);
@@ -284,7 +391,10 @@ export class ClientDetail implements OnInit {
       console.error(error);
 
       this.error.set(
-        'Impossible d’enregistrer le client.'
+        this.getErrorMessage(
+          error,
+          'Impossible d’enregistrer le client.'
+        )
       );
 
     } finally {
@@ -299,41 +409,10 @@ export class ClientDetail implements OnInit {
 
   openMail(): void {
 
-    const client = this.client();
-
-    if (
-      !client ||
-      this.isNew ||
-      this.editing() ||
-      this.saving() ||
-      this.archiving() ||
-      this.mailOpen()
-    ) {
-      return;
-    }
+    if (!this.canSendMail()) return;
 
     this.error.set(null);
     this.success.set(null);
-
-    if (client.status === 'Archivé') {
-
-      this.error.set(
-        'Réactivez ce client avant de lui envoyer un e-mail.'
-      );
-
-      return;
-
-    }
-
-    if (!client.email?.trim()) {
-
-      this.error.set(
-        'Ce client ne possède pas d’adresse e-mail.'
-      );
-
-      return;
-
-    }
 
     this.mailOpen.set(true);
 
@@ -364,14 +443,36 @@ export class ClientDetail implements OnInit {
 
   }
 
+  // Ouvrir la confirmation d'archivage
+
+  openArchive(): void {
+
+    if (!this.canArchive()) return;
+
+    this.error.set(null);
+    this.success.set(null);
+
+    this.confirmArchive.set(true);
+
+  }
+
+  // Annuler l'archivage
+
+  cancelArchive(): void {
+
+    if (this.archiving()) return;
+
+    this.confirmArchive.set(false);
+
+  }
+
   // Archivage
 
   async archiveClient(): Promise<void> {
 
     if (
-      this.archiving() ||
-      !this.client() ||
-      this.mailOpen()
+      !this.confirmArchive() ||
+      !this.canArchive()
     ) {
       return;
     }
@@ -391,6 +492,7 @@ export class ClientDetail implements OnInit {
         ...updated
       });
 
+      this.editing.set(false);
       this.confirmArchive.set(false);
 
       this.success.set(
@@ -402,7 +504,10 @@ export class ClientDetail implements OnInit {
       console.error(error);
 
       this.error.set(
-        'Impossible d’archiver le client.'
+        this.getErrorMessage(
+          error,
+          'Impossible d’archiver le client.'
+        )
       );
 
     } finally {
@@ -417,13 +522,7 @@ export class ClientDetail implements OnInit {
 
   async reactivateClient(): Promise<void> {
 
-    if (
-      this.saving() ||
-      !this.client() ||
-      this.mailOpen()
-    ) {
-      return;
-    }
+    if (!this.canReactivate()) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -450,7 +549,10 @@ export class ClientDetail implements OnInit {
       console.error(error);
 
       this.error.set(
-        'Impossible de réactiver le client.'
+        this.getErrorMessage(
+          error,
+          'Impossible de réactiver le client.'
+        )
       );
 
     } finally {

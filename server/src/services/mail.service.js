@@ -1,4 +1,3 @@
-
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
@@ -16,10 +15,25 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 30000
 });
 
+// Génération du message MIME
+
+const mimeTransporter = nodemailer.createTransport({
+  streamTransport: true,
+  buffer: true,
+  newline: 'windows'
+});
+
+// Vérification SMTP
+
 async function verifyConnection() {
+
   await transporter.verify();
+
   return true;
+
 }
+
+// Envoi d'un message
 
 async function sendMail({
   to,
@@ -30,13 +44,25 @@ async function sendMail({
   references
 }) {
 
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-    const error = new Error('Messagerie SMTP non configurée.');
+  if (
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASSWORD
+  ) {
+
+    const error = new Error(
+      'Messagerie SMTP non configurée.'
+    );
+
     error.status = 503;
+
     throw error;
+
   }
 
-  return transporter.sendMail({
+  // Générer le message MIME une seule fois
+
+  const generated = await mimeTransporter.sendMail({
+
     from: {
       name: process.env.SMTP_FROM_NAME || 'MargeWeb',
       address: process.env.SMTP_USER
@@ -48,7 +74,32 @@ async function sendMail({
     html,
     inReplyTo,
     references
+
   });
+
+  // Envoyer le message MIME via SMTP
+
+  const result = await transporter.sendMail({
+
+    envelope: generated.envelope,
+
+    raw: generated.message
+
+  });
+
+  // Retourner également le message original
+  // pour son enregistrement dans Envoyés
+
+  return {
+
+    ...result,
+
+    messageId: generated.messageId,
+
+    raw: generated.message
+
+  };
+
 }
 
 module.exports = {

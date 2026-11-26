@@ -25,6 +25,7 @@ function createClient() {
 
     error.status = 503;
     throw error;
+
   }
 
   return new ImapFlow({
@@ -44,6 +45,7 @@ function createClient() {
     socketTimeout: 60000
 
   });
+
 }
 
 async function verifyConnection() {
@@ -53,6 +55,7 @@ async function verifyConnection() {
   try {
 
     await client.connect();
+
     return true;
 
   } finally {
@@ -60,6 +63,7 @@ async function verifyConnection() {
     client.close();
 
   }
+
 }
 
 async function listFolders() {
@@ -83,6 +87,102 @@ async function listFolders() {
     client.close();
 
   }
+
+}
+
+// ==========================================
+// RECHERCHE DU DOSSIER ENVOYÉS
+// ==========================================
+
+function findSentFolder(folders) {
+
+  return folders.find(folder =>
+
+    folder.specialUse === '\\Sent'
+
+  ) || folders.find(folder =>
+
+    [
+      'sent',
+      'sent items',
+      'sent messages',
+      'envoyés',
+      'messages envoyés'
+    ].includes(folder.name?.toLowerCase())
+
+  ) || null;
+
+}
+
+// ==========================================
+// ENREGISTREMENT DANS ENVOYÉS
+// ==========================================
+
+async function appendSentMessage(raw) {
+
+  if (!Buffer.isBuffer(raw) || !raw.length) {
+
+    throw new Error(
+      'Le message MIME est invalide.'
+    );
+
+  }
+
+  const client = createClient();
+
+  try {
+
+    await client.connect();
+
+    const folders = await client.list();
+
+    const sentFolder = findSentFolder(folders);
+
+    if (!sentFolder) {
+
+      throw new Error(
+        'Dossier des messages envoyés introuvable.'
+      );
+
+    }
+
+    // Ajouter une copie du message original
+    // dans le dossier Envoyés de Hostinger
+
+    const result = await client.append(
+
+      sentFolder.path,
+
+      raw,
+
+      ['\\Seen'],
+
+      new Date()
+
+    );
+
+    if (!result) {
+
+      throw new Error(
+        'Enregistrement IMAP non confirmé.'
+      );
+
+    }
+
+    return {
+
+      success: true,
+
+      folder: sentFolder.path
+
+    };
+
+  } finally {
+
+    client.close();
+
+  }
+
 }
 
 // ==========================================
@@ -506,6 +606,8 @@ async function syncFolder(
           }, { transaction });
 
           // Historique des messages reçus
+          // Les messages envoyés sont déjà enregistrés
+          // par le contrôleur d'envoi.
 
           if (contact && localFolder === 'INBOX') {
 
@@ -602,12 +704,7 @@ async function syncAll() {
 
     const folders = await client.list();
 
-    const sentFolder = folders.find(folder =>
-      folder.specialUse === '\\Sent'
-    ) || folders.find(folder =>
-      ['sent', 'sent items', 'sent messages', 'envoyés']
-        .includes(folder.name?.toLowerCase())
-    );
+    const sentFolder = findSentFolder(folders);
 
     const targets = [
 
@@ -694,6 +791,7 @@ module.exports = {
 
   verifyConnection,
   listFolders,
+  appendSentMessage,
   syncInbox,
   syncAll
 

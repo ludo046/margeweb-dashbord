@@ -2,7 +2,9 @@ const {
   sequelize,
   Client,
   Prospect,
-  Interaction
+  Interaction,
+  Email,
+  Draft
 } = require('../models');
 
 const allowedFields = [
@@ -141,8 +143,11 @@ exports.archive = async (req, res, next) => {
 
 exports.convertProspect = async (req, res, next) => {
   try {
+
     const result = await sequelize.transaction(
       async (transaction) => {
+
+        // 1. Récupérer le prospect
 
         const prospect = await Prospect.findByPk(
           req.params.prospectId,
@@ -155,6 +160,8 @@ exports.convertProspect = async (req, res, next) => {
             message: 'Prospect introuvable.'
           };
         }
+
+        // 2. Vérifier qu'il n'est pas déjà client
 
         const existingClient = await Client.findOne({
           where: {
@@ -171,7 +178,10 @@ exports.convertProspect = async (req, res, next) => {
           };
         }
 
+        // 3. Créer la fiche client
+
         const client = await Client.create({
+
           prospectId: prospect.id,
           name: prospect.name,
           email: prospect.email || '',
@@ -180,47 +190,155 @@ exports.convertProspect = async (req, res, next) => {
           city: prospect.location || '',
           notes: prospect.notes || '',
           status: 'Actif'
+
         }, { transaction });
+
+        // 4. Rattacher les emails existants
+
+        const [emailsCount] = await Email.update({
+
+          clientId: client.id
+
+        }, {
+
+          where: {
+            prospectId: prospect.id,
+            clientId: null
+          },
+
+          silent: true,
+          transaction
+
+        });
+
+        // 5. Rattacher les brouillons existants
+
+        const [draftsCount] = await Draft.update({
+
+          clientId: client.id
+
+        }, {
+
+          where: {
+            prospectId: prospect.id,
+            clientId: null
+          },
+
+          silent: true,
+          transaction
+
+        });
+
+        // Adapter les brouillons de prospection
+        // sans modifier les réponses et transferts
+
+        await Draft.update({
+
+          mode: 'client'
+
+        }, {
+
+          where: {
+            prospectId: prospect.id,
+            clientId: client.id,
+            mode: 'prospect'
+          },
+
+          silent: true,
+          transaction
+
+        });
+
+        // 6. Rattacher les interactions existantes
+
+        const [interactionsCount] = await Interaction.update({
+
+          clientId: client.id
+
+        }, {
+
+          where: {
+            prospectId: prospect.id,
+            clientId: null
+          },
+
+          silent: true,
+          transaction
+
+        });
+
+        // 7. Mettre à jour le prospect
 
         const previousStatus = prospect.status;
 
         await prospect.update({
+
           status: 'Client',
           nextFollowUp: null
+
         }, { transaction });
 
+        // 8. Enregistrer la conversion
+
         await Interaction.create({
+
           prospectId: prospect.id,
+          clientId: client.id,
           type: 'note',
           subject: 'Conversion en client',
           content: 'Le prospect a été converti en client.'
+
         }, { transaction });
 
+        // 9. Enregistrer le changement de statut
+
         if (previousStatus !== 'Client') {
+
           await Interaction.create({
+
             prospectId: prospect.id,
+            clientId: client.id,
             type: 'status_change',
             subject: 'Changement de statut',
             content: `${previousStatus} → Client`
+
           }, { transaction });
+
         }
 
+        // 10. Retourner le résultat
+
         return {
+
           status: 201,
-          client
+
+          client,
+
+          transferred: {
+            emails: emailsCount,
+            drafts: draftsCount,
+            interactions: interactionsCount
+          }
+
         };
+
       }
     );
 
     res.status(result.status).json(result);
 
   } catch (error) {
+
     if (error.name === 'SequelizeUniqueConstraintError') {
+
       return res.status(409).json({
         message: 'Ce prospect est déjà associé à un client.'
       });
+
     }
 
     next(error);
+
   }
+
 };

@@ -1,26 +1,61 @@
-
 <section class="history-panel">
 
   <header class="history-header">
+
     <div>
+
       <h2>Historique des échanges</h2>
+
       <p>{{ interactions().length }} interaction(s)</p>
+
     </div>
 
-    <button
-      class="primary-btn"
-      [disabled]="saving() || formOpen()"
-      (click)="openForm()"
-    >
-      + Interaction
-    </button>
+    <div class="header-actions">
+
+      <button
+        type="button"
+        class="secondary-btn"
+        [disabled]="loading() || saving() || formOpen() || !owner()"
+        (click)="load()"
+      >
+        ↻ Actualiser
+      </button>
+
+      @if (!readOnly() && owner()) {
+
+        <button
+          type="button"
+          class="primary-btn"
+          [disabled]="saving() || formOpen() || loading()"
+          (click)="openForm()"
+        >
+          + Interaction
+        </button>
+
+      }
+
+    </div>
+
   </header>
 
-  @if (error()) {
-    <p class="error-message">{{ error() }}</p>
+  @if (readOnly()) {
+
+    <div class="readonly-notice">
+      <span>🔒</span>
+      Cet historique est accessible en lecture seule.
+    </div>
+
   }
 
-  @if (formOpen()) {
+  @if (error()) {
+
+    <p class="error-message" role="alert">
+      {{ error() }}
+    </p>
+
+  }
+
+  @if (formOpen() && !readOnly()) {
 
     <form
       class="interaction-form"
@@ -42,32 +77,43 @@
         id="interaction-type"
         name="type"
         [(ngModel)]="draft.type"
+        [disabled]="saving()"
         required
       >
-        @for (type of types; track type.value) {
+
+        @for (type of manualTypes(); track type.value) {
+
           <option [value]="type.value">
             {{ type.label }}
           </option>
+
         }
+
       </select>
 
-      <label for="interaction-subject">Sujet</label>
+      <label for="interaction-subject">
+        Sujet
+      </label>
 
       <input
         id="interaction-subject"
         name="subject"
         [(ngModel)]="draft.subject"
+        [disabled]="saving()"
         placeholder="Ex : Proposition de création de site"
         maxlength="255"
         required
       />
 
-      <label for="interaction-content">Contenu</label>
+      <label for="interaction-content">
+        Contenu
+      </label>
 
       <textarea
         id="interaction-content"
         name="content"
         [(ngModel)]="draft.content"
+        [disabled]="saving()"
         rows="5"
         placeholder="Résumé de l'échange..."
       ></textarea>
@@ -103,16 +149,26 @@
 
   }
 
-  @if (loading()) {
+  @if (!owner()) {
 
-    <p class="empty-state">Chargement de l'historique...</p>
+    <div class="empty-state">
+      Aucun contact associé à cet historique.
+    </div>
+
+  } @else if (loading()) {
+
+    <p class="empty-state">
+      Chargement de l'historique...
+    </p>
 
   } @else {
 
     <div class="timeline">
 
-      @for (interaction of interactions();
-            track interaction.id) {
+      @for (
+        interaction of interactions();
+        track interaction.id
+      ) {
 
         <article class="timeline-item">
 
@@ -128,12 +184,27 @@
 
             <div class="interaction-heading">
 
-              <span
-                class="interaction-type"
-                [style.color]="getType(interaction.type)?.color"
-              >
-                {{ getType(interaction.type)?.label }}
-              </span>
+              <div class="interaction-labels">
+
+                <span
+                  class="interaction-type"
+                  [style.color]="getType(interaction.type)?.color"
+                >
+                  {{ getType(interaction.type)?.label }}
+                </span>
+
+                @if (isAutomatic(interaction)) {
+
+                  <span
+                    class="protected-badge"
+                    title="Cette interaction ne peut pas être modifiée"
+                  >
+                    Protégé
+                  </span>
+
+                }
+
+              </div>
 
               <time>
                 {{ interaction.occurredAt |
@@ -145,27 +216,35 @@
             <h3>{{ interaction.subject }}</h3>
 
             @if (interaction.content) {
+
               <p>{{ interaction.content }}</p>
+
             }
 
-            <div class="interaction-actions">
+            @if (canEdit(interaction)) {
 
-              <button
-                [disabled]="saving() || formOpen()"
-                (click)="edit(interaction)"
-              >
-                Modifier
-              </button>
+              <div class="interaction-actions">
 
-              <button
-                class="delete-btn"
-                [disabled]="saving() || formOpen()"
-                (click)="remove(interaction)"
-              >
-                Supprimer
-              </button>
+                <button
+                  type="button"
+                  [disabled]="saving() || formOpen()"
+                  (click)="edit(interaction)"
+                >
+                  Modifier
+                </button>
 
-            </div>
+                <button
+                  type="button"
+                  class="delete-btn"
+                  [disabled]="saving() || formOpen()"
+                  (click)="remove(interaction)"
+                >
+                  Supprimer
+                </button>
+
+              </div>
+
+            }
 
           </div>
 
@@ -173,9 +252,18 @@
 
       } @empty {
 
-        <div class="empty-state">
-          Aucun échange enregistré pour ce prospect.
-        </div>
+        @if (!error()) {
+
+          <div class="empty-state">
+
+            Aucun échange enregistré pour
+            {{ owner()?.type === 'client'
+              ? 'ce client'
+              : 'ce prospect' }}.
+
+          </div>
+
+        }
 
       }
 

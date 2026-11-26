@@ -43,6 +43,8 @@ app.use(
   interactionRoutes
 );
 
+app.use('/api/clients/:clientId/interactions', interactionRoutes);
+
 app.use('/api/emails', emailRoutes);
 
 app.use('/api/drafts', draftRoutes);
@@ -73,18 +75,11 @@ async function startServer() {
 
     console.log('Connexion SQLite réussie');
 
-    // Création des tables manquantes
-    // uniquement, sans modification destructive
+    await runMigrations();
 
     await sequelize.sync();
 
     console.log('Modèles Sequelize synchronisés');
-
-    // Application des migrations versionnées
-
-    await runMigrations();
-
-    // Démarrage de l'API
 
     app.listen(PORT, '127.0.0.1', () => {
 

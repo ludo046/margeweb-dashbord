@@ -1,4 +1,3 @@
-
 $navy: #111d35;
 $accent: #15b8a6;
 $muted: #8190a6;
@@ -35,6 +34,7 @@ $muted: #8190a6;
     margin: 8px 0;
     color: $navy;
     font-size: 32px;
+    overflow-wrap: anywhere;
   }
 
   p {
@@ -81,6 +81,7 @@ $muted: #8190a6;
   select,
   textarea {
     width: 100%;
+    box-sizing: border-box;
     padding: 13px;
     border: 1px solid #dfe6ef;
     border-radius: 9px;
@@ -90,6 +91,12 @@ $muted: #8190a6;
     &:focus {
       outline: 2px solid $accent;
       outline-offset: 1px;
+    }
+
+    &:disabled {
+      background: #f3f6fb;
+      color: #8190a6;
+      cursor: not-allowed;
     }
   }
 
@@ -121,6 +128,13 @@ $muted: #8190a6;
   }
 }
 
+.field-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8190a6;
+}
+
 .status {
   display: inline-block;
   padding: 7px 12px;
@@ -133,6 +147,7 @@ $muted: #8190a6;
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -144,13 +159,18 @@ $muted: #8190a6;
   cursor: pointer;
   font: inherit;
   font-weight: 700;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
 
 .primary-btn {
   background: $accent;
   color: $navy;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #0d9e90;
   }
 }
@@ -158,30 +178,15 @@ $muted: #8190a6;
 .secondary-btn {
   background: #e8edf4;
   color: $navy;
-}
 
-@media (max-width: 800px) {
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .detail-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-.primary-btn {
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
+  &:hover:not(:disabled) {
+    background: #dfe6ef;
   }
 }
 
 input.ng-invalid.ng-touched {
   border-color: #dc3545;
 }
-
 
 .header-actions {
   display: flex;
@@ -210,7 +215,7 @@ input.ng-invalid.ng-touched {
   color: #dc3545;
   border: 1px solid #dc3545;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #fff0f1;
   }
 }
@@ -220,7 +225,7 @@ input.ng-invalid.ng-touched {
   color: white;
   border: 0;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #b92b39;
   }
 }
@@ -240,6 +245,9 @@ input.ng-invalid.ng-touched {
 .confirmation-modal {
   width: 100%;
   max-width: 440px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
   padding: 32px;
   border-radius: 18px;
   background: white;
@@ -272,6 +280,7 @@ input.ng-invalid.ng-touched {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 28px;
 }
@@ -282,7 +291,7 @@ input.ng-invalid.ng-touched {
   font-size: 14px;
 }
 
-
+// Messagerie
 
 .mail-toolbar {
   display: flex;
@@ -388,6 +397,7 @@ input.ng-invalid.ng-touched {
 
   .client-banner-content {
     flex: 1;
+    min-width: 0;
 
     strong {
       color: #166534;
@@ -413,6 +423,93 @@ input.ng-invalid.ng-touched {
     }
   }
 }
+
+.archived-label {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+// Anciens prospects à convertir
+
+.legacy-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px;
+  margin-bottom: 25px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+
+  strong {
+    color: #9a3412;
+    font-size: 14px;
+  }
+
+  p {
+    margin: 6px 0 0;
+    color: #9a3412;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+.legacy-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #ffedd5;
+  color: #c2410c;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+// Historique commercial
+
+.history-section {
+  margin-top: 25px;
+}
+
+.history-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 18px 20px;
+  margin-bottom: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+
+  strong {
+    color: #344967;
+    font-size: 14px;
+  }
+
+  p {
+    margin: 5px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .client-btn {
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+}
+
+// Fenêtre de conversion
 
 .conversion-icon {
   display: flex;
@@ -447,7 +544,33 @@ input.ng-invalid.ng-touched {
   color: #8190a6 !important;
 }
 
+// Accessibilité
+
+button,
+a {
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 3px;
+  }
+}
+
+// Responsive
+
+@media (max-width: 800px) {
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+}
+
 @media (max-width: 700px) {
+
   .client-banner {
     align-items: flex-start;
     flex-wrap: wrap;
@@ -456,4 +579,26 @@ input.ng-invalid.ng-touched {
       width: 100%;
     }
   }
+
+  .history-notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panel {
+    padding: 20px;
+  }
+
+  .confirmation-modal {
+    padding: 24px;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .detail-header h1 {
+    font-size: 26px;
+  }
+
 }

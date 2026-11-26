@@ -1,4 +1,3 @@
-
 import {
   Component,
   input,
@@ -13,20 +12,30 @@ import {
 import { FormsModule } from '@angular/forms';
 
 import { Prospect } from '../../../core/services/prospects';
+
+import {
+  Client,
+  ClientsService
+} from '../../../core/services/clients';
+
 import { MailService } from '../../../core/services/mail';
 import { Email } from '../../../core/services/emails';
 
 import {
   Draft,
   DraftInput,
+  DraftMode,
   DraftsService
 } from '../../../core/services/drafts';
 
-export type MailMode =
-  'prospect' | 'new' | 'reply' | 'forward';
+export type MailMode = DraftMode;
 
 type SaveState =
-  'idle' | 'pending' | 'saving' | 'saved' | 'error';
+  'idle' |
+  'pending' |
+  'saving' |
+  'saved' |
+  'error';
 
 @Component({
   selector: 'app-mail-composer',
@@ -39,9 +48,13 @@ export class MailComposer implements OnInit, OnDestroy {
 
   private readonly service = inject(MailService);
   private readonly draftsService = inject(DraftsService);
+  private readonly clientsService = inject(ClientsService);
 
   readonly mode = input<MailMode>('prospect');
+
   readonly prospect = input<Prospect | null>(null);
+  readonly client = input<Client | null>(null);
+
   readonly originalEmail = input<Email | null>(null);
   readonly draft = input<Draft | null>(null);
 
@@ -51,6 +64,8 @@ export class MailComposer implements OnInit, OnDestroy {
   readonly sending = signal(false);
   readonly closing = signal(false);
   readonly deleting = signal(false);
+
+  readonly sendConfirmed = signal(false);
 
   readonly error = signal<string | null>(null);
 
@@ -71,13 +86,28 @@ export class MailComposer implements OnInit, OnDestroy {
   subject = '';
   content = '';
 
+  // Mode de rédaction
+
   readonly effectiveMode = computed<MailMode>(() => {
 
     const draft = this.draft();
 
     if (draft) {
 
-      if (draft.mode === 'prospect' && !draft.prospect) {
+      // Un prospect converti devient un client
+
+      if (
+        draft.mode === 'prospect' &&
+        draft.clientId !== null &&
+        draft.clientId !== undefined
+      ) {
+        return 'client';
+      }
+
+      if (
+        draft.mode === 'prospect' &&
+        !draft.prospect
+      ) {
         return 'new';
       }
 
@@ -96,11 +126,44 @@ export class MailComposer implements OnInit, OnDestroy {
 
   });
 
-  readonly effectiveProspectId = computed(() =>
-    this.draft()
-      ? this.draft()?.prospectId ?? null
-      : this.prospect()?.id ?? null
-  );
+  // Prospect associé
+
+  readonly effectiveProspectId = computed(() => {
+
+    const draft = this.draft();
+
+    if (draft) {
+      return draft.prospectId ?? null;
+    }
+
+    return (
+      this.prospect()?.id ??
+      this.client()?.prospectId ??
+      this.originalEmail()?.prospectId ??
+      null
+    );
+
+  });
+
+  // Client associé
+
+  readonly effectiveClientId = computed(() => {
+
+    const draft = this.draft();
+
+    if (draft) {
+      return draft.clientId ?? null;
+    }
+
+    return (
+      this.client()?.id ??
+      this.originalEmail()?.clientId ??
+      null
+    );
+
+  });
+
+  // Message original
 
   readonly effectiveOriginalEmail = computed(() =>
     this.draft()
@@ -108,11 +171,15 @@ export class MailComposer implements OnInit, OnDestroy {
       : this.originalEmail()
   );
 
+  // État du formulaire
+
   readonly busy = computed(() =>
     this.sending() ||
     this.closing() ||
     this.deleting()
   );
+
+  // Titre de la fenêtre
 
   readonly title = computed(() => {
 
@@ -124,6 +191,11 @@ export class MailComposer implements OnInit, OnDestroy {
       case 'forward':
         return 'Transférer le message';
 
+      case 'client':
+        return this.draft()
+          ? 'Modifier le brouillon client'
+          : 'Nouveau message client';
+
       default:
         return this.draft()
           ? 'Modifier le brouillon'
@@ -133,10 +205,25 @@ export class MailComposer implements OnInit, OnDestroy {
 
   });
 
+  // Verrouillage du destinataire
+
   readonly recipientLocked = computed(() =>
     this.effectiveMode() === 'prospect' ||
+    this.effectiveMode() === 'client' ||
     this.effectiveMode() === 'reply'
   );
+
+  // État du client
+
+  readonly clientArchived = computed(() =>
+    this.effectiveMode() === 'client' &&
+    (
+      this.draft()?.client?.status === 'Archivé' ||
+      this.client()?.status === 'Archivé'
+    )
+  );
+
+  // Indicateur de sauvegarde
 
   readonly saveLabel = computed(() => {
 
@@ -148,7 +235,7 @@ export class MailComposer implements OnInit, OnDestroy {
       case 'saving':
         return 'Enregistrement en cours...';
 
-      case 'saved':
+      case 'saved': {
 
         const date = this.savedAt();
 
@@ -162,6 +249,8 @@ export class MailComposer implements OnInit, OnDestroy {
             )}`
           : 'Brouillon enregistré';
 
+      }
+
       case 'error':
         return 'Échec de la sauvegarde';
 
@@ -171,6 +260,8 @@ export class MailComposer implements OnInit, OnDestroy {
     }
 
   });
+
+  // Initialisation
 
   ngOnInit(): void {
 
@@ -196,6 +287,15 @@ export class MailComposer implements OnInit, OnDestroy {
       }
 
       if (
+        this.effectiveMode() === 'client' &&
+        draft.client
+      ) {
+
+        this.recipient = draft.client.email || '';
+
+      }
+
+      if (
         this.effectiveMode() === 'reply' &&
         draft.originalEmail
       ) {
@@ -207,11 +307,38 @@ export class MailComposer implements OnInit, OnDestroy {
       this.savedAt.set(new Date(draft.updatedAt));
       this.saveState.set('saved');
 
+      if (this.clientArchived()) {
+
+        this.error.set(
+          'Ce client est archivé. Réactivez-le avant de lui envoyer un message.'
+        );
+
+      } else if (
+        this.effectiveMode() === 'client' &&
+        !draft.client
+      ) {
+
+        this.error.set(
+          'Impossible de récupérer les informations du client.'
+        );
+
+      } else if (
+        this.recipient !== draft.toEmail
+      ) {
+
+        this.error.set(
+          'L’adresse du destinataire a changé depuis la création du brouillon. Vérifiez-la avant l’envoi.'
+        );
+
+      }
+
       if (
         this.recipient !== draft.toEmail ||
         this.effectiveMode() !== draft.mode
       ) {
+
         this.onFieldChange();
+
       }
 
       return;
@@ -219,6 +346,7 @@ export class MailComposer implements OnInit, OnDestroy {
     }
 
     const prospect = this.prospect();
+    const client = this.client();
     const email = this.originalEmail();
 
     // Nouveau message depuis un prospect
@@ -229,7 +357,23 @@ export class MailComposer implements OnInit, OnDestroy {
 
     }
 
-    // Réponse
+    // Nouveau message depuis un client
+
+    if (this.mode() === 'client' && client) {
+
+      this.recipient = client.email || '';
+
+      if (client.status === 'Archivé') {
+
+        this.error.set(
+          'Ce client est archivé. Réactivez-le avant de lui envoyer un message.'
+        );
+
+      }
+
+    }
+
+    // Réponse à un message
 
     if (this.mode() === 'reply' && email) {
 
@@ -242,9 +386,11 @@ export class MailComposer implements OnInit, OnDestroy {
       this.content =
         '\n\n' + this.quoteOriginal(email);
 
+      this.revision++;
+
     }
 
-    // Transfert
+    // Transfert d'un message
 
     if (this.mode() === 'forward' && email) {
 
@@ -255,9 +401,13 @@ export class MailComposer implements OnInit, OnDestroy {
       this.content =
         '\n\n' + this.quoteOriginal(email);
 
+      this.revision++;
+
     }
 
   }
+
+  // Citation du message original
 
   private quoteOriginal(email: Email): string {
 
@@ -277,6 +427,8 @@ export class MailComposer implements OnInit, OnDestroy {
 
   }
 
+  // Données du brouillon
+
   private getDraftData(): DraftInput {
 
     return {
@@ -288,6 +440,7 @@ export class MailComposer implements OnInit, OnDestroy {
       content: this.content,
 
       prospectId: this.effectiveProspectId(),
+      clientId: this.effectiveClientId(),
 
       originalEmailId:
         this.effectiveOriginalEmail()?.id ?? null
@@ -295,6 +448,8 @@ export class MailComposer implements OnInit, OnDestroy {
     };
 
   }
+
+  // Vérifier si le brouillon contient des données
 
   private hasContent(): boolean {
 
@@ -305,6 +460,8 @@ export class MailComposer implements OnInit, OnDestroy {
     );
 
   }
+
+  // Annuler le délai de sauvegarde
 
   private clearSaveTimer(): void {
 
@@ -321,7 +478,13 @@ export class MailComposer implements OnInit, OnDestroy {
 
   onFieldChange(): void {
 
-    if (this.busy() || this.destroyed) return;
+    if (
+      this.busy() ||
+      this.destroyed ||
+      this.sendConfirmed()
+    ) {
+      return;
+    }
 
     this.revision++;
 
@@ -344,6 +507,10 @@ export class MailComposer implements OnInit, OnDestroy {
   async saveDraft(): Promise<boolean> {
 
     this.clearSaveTimer();
+
+    if (this.sendConfirmed()) {
+      return true;
+    }
 
     if (this.savePromise) {
 
@@ -375,22 +542,30 @@ export class MailComposer implements OnInit, OnDestroy {
     const currentRevision = this.revision;
     const data = this.getDraftData();
 
-    this.savePromise = this.persistDraft(
+    const promise = this.persistDraft(
       data,
       currentRevision
     );
 
+    this.savePromise = promise;
+
     try {
 
-      return await this.savePromise;
+      return await promise;
 
     } finally {
 
-      this.savePromise = null;
+      if (this.savePromise === promise) {
+
+        this.savePromise = null;
+
+      }
 
     }
 
   }
+
+  // Enregistrement dans la base de données
 
   private async persistDraft(
     data: DraftInput,
@@ -441,6 +616,13 @@ export class MailComposer implements OnInit, OnDestroy {
 
     if (this.busy()) return;
 
+    if (this.sendConfirmed()) {
+
+      this.closed.emit();
+      return;
+
+    }
+
     this.closing.set(true);
     this.error.set(null);
 
@@ -488,7 +670,9 @@ export class MailComposer implements OnInit, OnDestroy {
     try {
 
       if (this.savePromise) {
+
         await this.savePromise;
+
       }
 
       const id = this.draftId();
@@ -519,13 +703,68 @@ export class MailComposer implements OnInit, OnDestroy {
 
   }
 
+  // Vérifier les informations du client avant envoi
+
+  private async verifyClientRecipient(
+    clientId: number
+  ): Promise<boolean> {
+
+    const client = await this.clientsService.getById(
+      clientId
+    );
+
+    if (client.status === 'Archivé') {
+
+      this.error.set(
+        'Ce client est archivé. Réactivez-le avant de lui envoyer un message.'
+      );
+
+      return false;
+
+    }
+
+    const currentEmail = client.email?.trim() || '';
+
+    if (!currentEmail) {
+
+      this.error.set(
+        'Ce client ne possède pas d’adresse e-mail.'
+      );
+
+      return false;
+
+    }
+
+    if (
+      currentEmail.toLowerCase() !==
+      this.recipient.trim().toLowerCase()
+    ) {
+
+      this.recipient = currentEmail;
+
+      this.revision++;
+
+      await this.saveDraft();
+
+      this.error.set(
+        'L’adresse e-mail du client a changé. Vérifiez le nouveau destinataire avant de confirmer à nouveau l’envoi.'
+      );
+
+      return false;
+
+    }
+
+    return true;
+
+  }
+
   // Envoi du message
 
   async send(): Promise<void> {
 
     if (
       this.busy() ||
-      !this.recipient.trim() ||
+      this.sendConfirmed() ||
       !this.subject.trim() ||
       !this.content.trim()
     ) {
@@ -533,12 +772,22 @@ export class MailComposer implements OnInit, OnDestroy {
     }
 
     const mode = this.effectiveMode();
+
     const prospectId = this.effectiveProspectId();
+    const clientId = this.effectiveClientId();
+
     const originalEmail = this.effectiveOriginalEmail();
 
     if (mode === 'prospect' && prospectId === null) {
 
       this.error.set('Prospect introuvable.');
+      return;
+
+    }
+
+    if (mode === 'client' && clientId === null) {
+
+      this.error.set('Client introuvable.');
       return;
 
     }
@@ -550,16 +799,40 @@ export class MailComposer implements OnInit, OnDestroy {
 
     }
 
-    if (!confirm(
-      `Envoyer cet e-mail à ${this.recipient} ?`
-    )) {
-      return;
-    }
-
     this.sending.set(true);
     this.error.set(null);
 
     try {
+
+      // Vérifier l'adresse actuelle du client
+
+      if (mode === 'client' && clientId !== null) {
+
+        const valid = await this.verifyClientRecipient(
+          clientId
+        );
+
+        if (!valid) return;
+
+      }
+
+      if (!this.recipient.trim()) {
+
+        this.error.set(
+          'Aucune adresse e-mail renseignée.'
+        );
+
+        return;
+
+      }
+
+      // Confirmation avant envoi
+
+      if (!confirm(
+        `Envoyer cet e-mail à ${this.recipient} ?`
+      )) {
+        return;
+      }
 
       // Sauvegarder avant de tenter l'envoi
 
@@ -584,21 +857,43 @@ export class MailComposer implements OnInit, OnDestroy {
 
       let result;
 
-      if (mode === 'prospect' && prospectId !== null) {
+      // Envoi depuis un prospect
+
+      if (
+        mode === 'prospect' &&
+        prospectId !== null
+      ) {
 
         result = await this.service.sendToProspect(
           prospectId,
           data
         );
 
+      // Envoi depuis un client
+
       } else if (
-        mode === 'reply' && originalEmail
+        mode === 'client' &&
+        clientId !== null
+      ) {
+
+        result = await this.service.sendToClient(
+          clientId,
+          data
+        );
+
+      // Réponse à un message
+
+      } else if (
+        mode === 'reply' &&
+        originalEmail
       ) {
 
         result = await this.service.reply(
           originalEmail.id,
           data
         );
+
+      // Nouveau message ou transfert
 
       } else {
 
@@ -625,10 +920,16 @@ export class MailComposer implements OnInit, OnDestroy {
 
       // L'envoi est confirmé
 
+      this.sendConfirmed.set(true);
+
+      this.clearSaveTimer();
+
       let message =
         result.warning ||
         result.message ||
         'E-mail accepté par le serveur SMTP.';
+
+      // Supprimer le brouillon après envoi
 
       const id = this.draftId();
 
@@ -657,7 +958,7 @@ export class MailComposer implements OnInit, OnDestroy {
 
       console.error(error);
 
-      if ([400, 404, 503].includes(error?.status)) {
+      if ([400, 404, 409].includes(error?.status)) {
 
         this.error.set(
 
@@ -670,7 +971,7 @@ export class MailComposer implements OnInit, OnDestroy {
 
         this.error.set(
 
-          'Envoi non confirmé. Vérifie avant de réessayer pour éviter un doublon.'
+          'Envoi non confirmé. Vérifiez avant de réessayer pour éviter un doublon.'
 
         );
 
@@ -683,6 +984,8 @@ export class MailComposer implements OnInit, OnDestroy {
     }
 
   }
+
+  // Nettoyage du composant
 
   ngOnDestroy(): void {
 

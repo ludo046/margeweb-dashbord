@@ -1,8 +1,14 @@
+import {
+  Injectable,
+  inject,
+  signal
+} from '@angular/core';
 
-import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+
 import { environment } from '../../../environments/environment';
+import { ClientStatus } from './clients';
 
 export type MailFolder = 'INBOX' | 'SENT';
 
@@ -17,11 +23,19 @@ export interface Email {
   receivedAt: string;
   isRead: boolean;
   hasAttachments: boolean;
+
   prospectId: number | null;
+  clientId: number | null;
 
   prospect?: {
     id: number;
     name: string;
+  } | null;
+
+  client?: {
+    id: number;
+    name: string;
+    status: ClientStatus;
   } | null;
 }
 
@@ -30,12 +44,24 @@ export interface FolderStats {
   imported: number;
   updated: number;
   linked: number;
+
+  linkedClients?: number;
+  linkedProspects?: number;
 }
 
 export interface SyncResult extends FolderStats {
   success: boolean;
   folders?: Record<string, FolderStats>;
   warnings?: string[];
+}
+
+export interface EmailFilters {
+  folder?: MailFolder | 'ALL';
+  prospectId?: number;
+  clientId?: number;
+  search?: string;
+  limit?: number;
+  offset?: number;
 }
 
 @Injectable({
@@ -64,8 +90,12 @@ export class EmailsService {
   readonly error = signal<string | null>(null);
 
   constructor() {
+
     void this.loadUnreadCount();
+
   }
+
+  // Restaurer le dernier dossier consulté
 
   private restoreFolder(): MailFolder {
 
@@ -92,7 +122,10 @@ export class EmailsService {
     }
 
     return 'INBOX';
+
   }
+
+  // Mémoriser le dossier consulté
 
   private saveFolder(folder: MailFolder): void {
 
@@ -111,7 +144,107 @@ export class EmailsService {
       );
 
     }
+
   }
+
+  // Récupérer les messages avec des filtres
+
+  async findAll(
+    filters: EmailFilters = {}
+  ): Promise<Email[]> {
+
+    const params: Record<string, string> = {
+      folder: filters.folder ?? 'INBOX'
+    };
+
+    if (filters.prospectId !== undefined) {
+
+      params['prospectId'] =
+        String(filters.prospectId);
+
+    }
+
+    if (filters.clientId !== undefined) {
+
+      params['clientId'] =
+        String(filters.clientId);
+
+    }
+
+    if (filters.search?.trim()) {
+
+      params['search'] = filters.search.trim();
+
+    }
+
+    if (filters.limit !== undefined) {
+
+      params['limit'] = String(filters.limit);
+
+    }
+
+    if (filters.offset !== undefined) {
+
+      params['offset'] = String(filters.offset);
+
+    }
+
+    return firstValueFrom(
+      this.http.get<Email[]>(
+        this.apiUrl,
+        { params }
+      )
+    );
+
+  }
+
+  // Récupérer un message précis
+
+  async findById(id: number): Promise<Email> {
+
+    return firstValueFrom(
+      this.http.get<Email>(
+        `${this.apiUrl}/${id}`
+      )
+    );
+
+  }
+
+  // Récupérer les messages d'un prospect
+
+  async findByProspect(
+    prospectId: number,
+    limit = 100,
+    offset = 0
+  ): Promise<Email[]> {
+
+    return this.findAll({
+      folder: 'ALL',
+      prospectId,
+      limit,
+      offset
+    });
+
+  }
+
+  // Récupérer les messages d'un client
+
+  async findByClient(
+    clientId: number,
+    limit = 100,
+    offset = 0
+  ): Promise<Email[]> {
+
+    return this.findAll({
+      folder: 'ALL',
+      clientId,
+      limit,
+      offset
+    });
+
+  }
+
+  // Charger la messagerie principale
 
   async load(
     folder: MailFolder = this.activeFolder()
@@ -120,7 +253,9 @@ export class EmailsService {
     const version = ++this.loadVersion;
 
     if (folder !== this.activeFolder()) {
+
       this.emails.set([]);
+
     }
 
     this.activeFolder.set(folder);
@@ -131,11 +266,9 @@ export class EmailsService {
 
     try {
 
-      const emails = await firstValueFrom(
-        this.http.get<Email[]>(this.apiUrl, {
-          params: { folder }
-        })
-      );
+      const emails = await this.findAll({
+        folder
+      });
 
       if (version !== this.loadVersion) return;
 
@@ -156,12 +289,16 @@ export class EmailsService {
     } finally {
 
       if (version === this.loadVersion) {
+
         this.loading.set(false);
+
       }
 
     }
 
   }
+
+  // Compteur de messages non lus
 
   async loadUnreadCount(): Promise<void> {
 
@@ -180,7 +317,10 @@ export class EmailsService {
       console.error(error);
 
     }
+
   }
+
+  // Marquer un message comme lu ou non lu
 
   async markAsRead(
     id: number,
@@ -203,7 +343,10 @@ export class EmailsService {
     );
 
     await this.loadUnreadCount();
+
   }
+
+  // Synchronisation avec Hostinger
 
   async sync(): Promise<SyncResult> {
 
@@ -227,5 +370,7 @@ export class EmailsService {
       this.syncing.set(false);
 
     }
+
   }
+
 }

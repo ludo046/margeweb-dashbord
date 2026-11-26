@@ -82,8 +82,7 @@ export class ProspectDetail implements OnInit {
     'À contacter',
     'Contacté',
     'À relancer',
-    'En discussion',
-    'Client'
+    'En discussion'
   ];
 
   // Messagerie
@@ -107,64 +106,226 @@ export class ProspectDetail implements OnInit {
     )
   );
 
+  readonly isConverted = computed(() =>
+    !!this.linkedClient()
+  );
+
+  // Ancien prospect avec statut Client
+  // mais sans fiche client associée
+
+  readonly isLegacyClient = computed(() =>
+    !this.isNew &&
+    this.prospect()?.status === 'Client' &&
+    !this.isConverted() &&
+    !this.clientsLoading() &&
+    !this.clientsError()
+  );
+
+  // Vérification des relations commerciales
+
+  readonly relationReady = computed(() =>
+    !this.clientsLoading() &&
+    !this.clientsError()
+  );
+
+  // Actions en cours
+
+  readonly busy = computed(() =>
+    this.saving() ||
+    this.deleting() ||
+    this.converting()
+  );
+
+  // Autorisations
+
+  readonly canEdit = computed(() =>
+    this.isNew ||
+    (
+      !!this.prospect() &&
+      this.relationReady() &&
+      !this.isConverted() &&
+      !this.busy() &&
+      !this.mailOpen()
+    )
+  );
+
+  readonly canDelete = computed(() =>
+    !this.isNew &&
+    !!this.prospect() &&
+    this.relationReady() &&
+    !this.isConverted() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen()
+  );
+
   readonly canConvert = computed(() =>
     !this.isNew &&
     !!this.prospect() &&
-    !this.linkedClient() &&
-    !this.clientsLoading() &&
-    !this.clientsError() &&
-    !this.converting()
+    this.relationReady() &&
+    !this.isConverted() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen()
+  );
+
+  readonly canSendMail = computed(() =>
+    !this.isNew &&
+    !!this.prospect()?.email?.trim() &&
+    this.relationReady() &&
+    !this.isConverted() &&
+    !this.isLegacyClient() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen()
+  );
+
+  readonly historyReadOnly = computed(() =>
+    this.isConverted() ||
+    this.isLegacyClient() ||
+    !this.relationReady() ||
+    this.busy()
   );
 
   ngOnInit(): void {
+
     if (!this.isNew) {
+
       void this.clientsService.load();
+
     }
+
   }
 
   refreshClients(): void {
+
     void this.clientsService.load();
+
   }
 
-  // Envoi d'un e-mail
+  // Message d'erreur retourné par le serveur
+
+  private getErrorMessage(
+    error: unknown,
+    fallback: string
+  ): string {
+
+    if (
+      error instanceof HttpErrorResponse &&
+      typeof error.error?.message === 'string'
+    ) {
+
+      return error.error.message;
+
+    }
+
+    return fallback;
+
+  }
+
+  // Ouverture du compositeur
+
+  openMail(): void {
+
+    if (!this.canSendMail()) return;
+
+    this.mailMessage.set(null);
+    this.saveError.set(null);
+
+    this.mailOpen.set(true);
+
+  }
+
+  closeMail(): void {
+
+    this.mailOpen.set(false);
+
+  }
+
+  // Après envoi d'un e-mail
 
   onMailSent(message: string): void {
+
     this.mailOpen.set(false);
+
     this.mailMessage.set(message);
-    this.historyVersion.update(value => value + 1);
+
+    this.historyVersion.update(
+      value => value + 1
+    );
+
   }
 
   // Modification du prospect
 
   startEditing(): void {
+
     const current = this.prospect();
 
-    if (!current || this.converting()) return;
+    if (!current || !this.canEdit()) return;
 
     this.draft = { ...current };
+
     this.saveError.set(null);
     this.editing.set(true);
+
   }
 
   cancelEditing(): void {
+
     if (this.saving()) return;
 
     if (this.isNew) {
+
       void this.router.navigate(['/prospects']);
       return;
+
     }
 
     this.draft = null;
+
     this.saveError.set(null);
     this.editing.set(false);
+
   }
 
   // Enregistrement
 
   async save(): Promise<void> {
 
-    if (!this.draft || !this.draft.name.trim()) return;
-    if (this.saving()) return;
+    if (
+      !this.draft ||
+      !this.draft.name.trim() ||
+      this.busy()
+    ) {
+      return;
+    }
+
+    if (!this.isNew && !this.canEdit()) {
+
+      this.saveError.set(
+        'Cette fiche prospect ne peut plus être modifiée.'
+      );
+
+      return;
+
+    }
+
+    if (
+      this.draft.status === 'Client' &&
+      (
+        this.isNew ||
+        this.prospect()?.status !== 'Client'
+      )
+    ) {
+
+      this.saveError.set(
+        'Utilise la conversion pour transformer ce prospect en client.'
+      );
+
+      return;
+
+    }
 
     this.saving.set(true);
     this.saveError.set(null);
@@ -172,6 +333,12 @@ export class ProspectDetail implements OnInit {
     try {
 
       this.draft.name = this.draft.name.trim();
+
+      if (this.draft.status === 'Client') {
+
+        this.draft.nextFollowUp = null;
+
+      }
 
       if (this.isNew) {
 
@@ -185,9 +352,13 @@ export class ProspectDetail implements OnInit {
         ]);
 
         return;
+
       }
 
-      await this.service.update(this.id, this.draft);
+      await this.service.update(
+        this.id,
+        this.draft
+      );
 
       this.draft = null;
       this.editing.set(false);
@@ -197,27 +368,34 @@ export class ProspectDetail implements OnInit {
       console.error(error);
 
       this.saveError.set(
-        'Impossible d’enregistrer le prospect.'
+        this.getErrorMessage(
+          error,
+          'Impossible d’enregistrer le prospect.'
+        )
       );
+
+      if (
+        error instanceof HttpErrorResponse &&
+        error.status === 409
+      ) {
+
+        await this.clientsService.load();
+
+      }
 
     } finally {
 
       this.saving.set(false);
 
     }
+
   }
 
   // Suppression
 
   async deleteProspect(): Promise<void> {
 
-    if (
-      this.deleting() ||
-      this.converting() ||
-      this.linkedClient() ||
-      this.clientsLoading() ||
-      this.clientsError()
-    ) return;
+    if (!this.canDelete()) return;
 
     this.deleting.set(true);
     this.saveError.set(null);
@@ -233,17 +411,30 @@ export class ProspectDetail implements OnInit {
       console.error(error);
 
       this.saveError.set(
-        'Impossible de supprimer le prospect.'
+        this.getErrorMessage(
+          error,
+          'Impossible de supprimer le prospect.'
+        )
       );
+
+      if (
+        error instanceof HttpErrorResponse &&
+        error.status === 409
+      ) {
+
+        await this.clientsService.load();
+
+      }
 
     } finally {
 
       this.deleting.set(false);
 
     }
+
   }
 
-  // Ouverture de la confirmation de conversion
+  // Confirmation de conversion
 
   openConversion(): void {
 
@@ -251,9 +442,8 @@ export class ProspectDetail implements OnInit {
 
     this.conversionError.set(null);
     this.confirmConvert.set(true);
-  }
 
-  // Annulation de la conversion
+  }
 
   cancelConversion(): void {
 
@@ -261,6 +451,7 @@ export class ProspectDetail implements OnInit {
 
     this.confirmConvert.set(false);
     this.conversionError.set(null);
+
   }
 
   // Conversion du prospect en client
@@ -274,9 +465,10 @@ export class ProspectDetail implements OnInit {
 
     try {
 
-      const client = await this.clientsService.convertProspect(
-        this.id
-      );
+      const client =
+        await this.clientsService.convertProspect(
+          this.id
+        );
 
       this.confirmConvert.set(false);
 
@@ -312,10 +504,14 @@ export class ProspectDetail implements OnInit {
           ]);
 
           return;
+
         }
 
         this.conversionError.set(
-          'Ce prospect possède déjà une fiche client.'
+          this.getErrorMessage(
+            error,
+            'Impossible de confirmer la conversion.'
+          )
         );
 
       } else {
@@ -333,5 +529,7 @@ export class ProspectDetail implements OnInit {
       this.converting.set(false);
 
     }
+
   }
+
 }

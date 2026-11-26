@@ -6,7 +6,9 @@ const Email = require('./email.model');
 const Draft = require('./draft.model');
 const Client = require('./client.model');
 
-// Historique commercial
+// ==========================================
+// PROSPECTS / INTERACTIONS
+// ==========================================
 
 Prospect.hasMany(Interaction, {
   foreignKey: 'prospectId',
@@ -19,7 +21,9 @@ Interaction.belongsTo(Prospect, {
   as: 'prospect'
 });
 
-// Messagerie
+// ==========================================
+// PROSPECTS / EMAILS
+// ==========================================
 
 Prospect.hasMany(Email, {
   foreignKey: 'prospectId',
@@ -32,7 +36,9 @@ Email.belongsTo(Prospect, {
   as: 'prospect'
 });
 
-// Brouillons associés aux prospects
+// ==========================================
+// PROSPECTS / BROUILLONS
+// ==========================================
 
 Prospect.hasMany(Draft, {
   foreignKey: 'prospectId',
@@ -45,7 +51,9 @@ Draft.belongsTo(Prospect, {
   as: 'prospect'
 });
 
-// Brouillons associés aux messages d'origine
+// ==========================================
+// EMAILS / BROUILLONS
+// ==========================================
 
 Email.hasMany(Draft, {
   foreignKey: 'originalEmailId',
@@ -58,7 +66,9 @@ Draft.belongsTo(Email, {
   as: 'originalEmail'
 });
 
-// Conversion des prospects en clients
+// ==========================================
+// PROSPECTS / CLIENTS
+// ==========================================
 
 Prospect.hasOne(Client, {
   foreignKey: 'prospectId',
@@ -71,6 +81,58 @@ Client.belongsTo(Prospect, {
   as: 'prospect',
   onDelete: 'SET NULL'
 });
+
+// ==========================================
+// CLIENTS / INTERACTIONS
+// ==========================================
+
+Client.hasMany(Interaction, {
+  foreignKey: 'clientId',
+  as: 'interactions',
+  onDelete: 'CASCADE'
+});
+
+Interaction.belongsTo(Client, {
+  foreignKey: 'clientId',
+  as: 'client',
+  onDelete: 'CASCADE'
+});
+
+// ==========================================
+// CLIENTS / EMAILS
+// ==========================================
+
+Client.hasMany(Email, {
+  foreignKey: 'clientId',
+  as: 'emails',
+  onDelete: 'SET NULL'
+});
+
+Email.belongsTo(Client, {
+  foreignKey: 'clientId',
+  as: 'client',
+  onDelete: 'SET NULL'
+});
+
+// ==========================================
+// CLIENTS / BROUILLONS
+// ==========================================
+
+Client.hasMany(Draft, {
+  foreignKey: 'clientId',
+  as: 'drafts',
+  onDelete: 'SET NULL'
+});
+
+Draft.belongsTo(Client, {
+  foreignKey: 'clientId',
+  as: 'client',
+  onDelete: 'SET NULL'
+});
+
+// ==========================================
+// EXPORTS
+// ==========================================
 
 module.exports = {
   sequelize,

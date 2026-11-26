@@ -1,4 +1,3 @@
-
 <div class="prospect-detail">
 
   <a routerLink="/prospects" class="back-link">
@@ -6,19 +5,31 @@
   </a>
 
   @if (!isNew && loading()) {
-  <section class="panel">
-    <p>Chargement du prospect...</p>
-  </section>
-} @else if (!isNew && loadError()) {
-  <section class="panel">
-    <p>{{ loadError() }}</p>
-  </section>
-} @else if (isNew || prospect()) {
+
+    <section class="panel">
+      <p>Chargement du prospect...</p>
+    </section>
+
+  } @else if (!isNew && loadError()) {
+
+    <section class="panel">
+      <p>{{ loadError() }}</p>
+    </section>
+
+  } @else if (isNew || prospect()) {
 
     <header class="detail-header">
+
       <div>
+
         <span class="eyebrow">
-          {{ isNew ? 'NOUVELLE OPPORTUNITÉ' : 'FICHE PROSPECT' }}
+
+          {{ isNew
+            ? 'NOUVELLE OPPORTUNITÉ'
+            : isConverted()
+              ? 'ARCHIVE COMMERCIALE'
+              : 'FICHE PROSPECT' }}
+
         </span>
 
         <h1>
@@ -26,303 +37,560 @@
         </h1>
 
         <p>
+
           {{ isNew
             ? 'Ajoute une nouvelle opportunité commerciale.'
             : prospect()?.location }}
+
         </p>
+
       </div>
 
+      @if (!editing() && !isNew) {
 
-@if (!editing() && !isNew) {
+        <div class="header-actions">
 
-  <div class="header-actions">
+          @if (linkedClient(); as client) {
 
-    @if (linkedClient(); as client) {
+            <a
+              class="client-btn"
+              [routerLink]="['/clients', client.id]">
 
-      <a
-        class="client-btn"
-        [routerLink]="['/clients', client.id]">
+              Voir la fiche client →
 
-        Voir la fiche client →
+            </a>
 
-      </a>
+          } @else if (clientsLoading()) {
 
-    } @else if (clientsLoading()) {
+            <button
+              class="secondary-btn"
+              disabled>
 
-      <button class="secondary-btn" disabled>
-        Vérification...
-      </button>
+              Vérification...
 
-    } @else if (clientsError()) {
+            </button>
 
-      <button
-        class="secondary-btn"
-        (click)="refreshClients()">
+          } @else if (clientsError()) {
 
-        Réessayer
+            <button
+              class="secondary-btn"
+              (click)="refreshClients()">
 
-      </button>
+              Réessayer
 
-    } @else {
+            </button>
 
-      <button
-        class="convert-btn"
-        [disabled]="!canConvert()"
-        (click)="openConversion()">
+          } @else {
 
-        Convertir en client
+            <button
+              class="convert-btn"
+              [disabled]="!canConvert()"
+              (click)="openConversion()">
 
-      </button>
+              Convertir en client
 
-      <button
-        class="danger-outline-btn"
-        [disabled]="converting() || deleting()"
-        (click)="confirmDelete.set(true)">
+            </button>
 
-        Supprimer
+            <button
+              class="danger-outline-btn"
+              [disabled]="!canDelete()"
+              (click)="confirmDelete.set(true)">
 
-      </button>
+              Supprimer
 
-    }
+            </button>
 
-    <button
-      class="primary-btn"
-      [disabled]="converting() || deleting()"
-      (click)="startEditing()">
+            <button
+              class="primary-btn"
+              [disabled]="!canEdit()"
+              (click)="startEditing()">
 
-      Modifier la fiche
+              Modifier la fiche
 
-    </button>
+            </button>
 
-  </div>
+          }
 
-}
+        </div>
+
+      }
 
     </header>
 
+    <!-- Prospect converti -->
+
     @if (linkedClient(); as client) {
 
-  @if (!editing()) {
+      <div class="client-banner">
 
-    <div class="client-banner">
+        <div class="client-banner-icon">✓</div>
 
-      <div class="client-banner-icon">✓</div>
+        <div class="client-banner-content">
 
-      <div class="client-banner-content">
+          <strong>Ce prospect est devenu client</strong>
 
-        <strong>Ce prospect est devenu client</strong>
+          <p>
 
-        <p>
-          Sa fiche client est disponible.
-          Son historique commercial et ses e-mails
-          sont conservés.
-        </p>
+            Cette fiche est désormais en lecture seule.
+
+            Son historique commercial et ses e-mails
+            sont conservés.
+
+            Pour modifier ses informations ou poursuivre
+            les échanges, utilise sa fiche client.
+
+          </p>
+
+          @if (client.status === 'Archivé') {
+
+            <span class="archived-label">
+              Client archivé
+            </span>
+
+          }
+
+        </div>
+
+        <a [routerLink]="['/clients', client.id]">
+          Accéder au client →
+        </a>
 
       </div>
 
-      <a [routerLink]="['/clients', client.id]">
-        Accéder au client →
-      </a>
+    } @else if (isLegacyClient()) {
 
-    </div>
+      <div class="legacy-banner">
 
-  }
+        <div class="legacy-icon">!</div>
 
-}
+        <div>
+
+          <strong>Conversion à finaliser</strong>
+
+          <p>
+
+            Ce prospect possède le statut Client,
+            mais aucune fiche client ne lui est associée.
+
+            Utilise le bouton Convertir en client
+            pour terminer sa migration.
+
+          </p>
+
+        </div>
+
+      </div>
+
+    } @else if (!isNew && clientsError()) {
+
+      <div class="legacy-banner">
+
+        <div class="legacy-icon">!</div>
+
+        <div>
+
+          <strong>Vérification impossible</strong>
+
+          <p>
+
+            Impossible de vérifier si ce prospect
+            possède une fiche client.
+
+            Les actions commerciales sont temporairement
+            désactivées.
+
+          </p>
+
+        </div>
+
+      </div>
+
+    }
+
+    <!-- Erreur hors formulaire -->
+
+    @if (
+      saveError() &&
+      !editing() &&
+      !confirmDelete()
+    ) {
+
+      <p class="error-message" role="alert">
+        {{ saveError() }}
+      </p>
+
+    }
+
+    <!-- Formulaire -->
 
     @if (editing() && draft; as form) {
 
-      <form
-        class="detail-grid"
-        #prospectForm="ngForm"
-        (ngSubmit)="prospectForm.valid && save()"
-      >
+      @if (!isNew && isConverted()) {
 
         <section class="panel">
-          <h2>Informations générales</h2>
 
-          <label for="name">Nom de la course *</label>
-          <input
-            id="name"
-            name="name"
-            [(ngModel)]="form.name"
-            placeholder="Ex : Trail de la Margeride"
-            required
-          />
+          <p>
 
-          <label for="location">Localisation</label>
-          <input
-            id="location"
-            name="location"
-            [(ngModel)]="form.location"
-          />
+            Ce prospect a été converti pendant
+            la modification de sa fiche.
 
-          <label for="email">E-mail</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            email
-            [(ngModel)]="form.email"
-          />
+            Les modifications ne peuvent plus être
+            enregistrées ici.
 
-          <label for="phone">Téléphone</label>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            [(ngModel)]="form.phone"
-          />
+          </p>
 
-          <label for="website">Site internet actuel</label>
-          <input
-            id="website"
-            name="website"
-            [(ngModel)]="form.website"
-            placeholder="https://..."
-          />
-        </section>
-
-        <section class="panel">
-          <h2>Suivi commercial</h2>
-
-          <label for="status">Statut</label>
-          <select
-            id="status"
-            name="status"
-            [(ngModel)]="form.status"
-          >
-            @for (status of statuses; track status) {
-              <option [value]="status">{{ status }}</option>
-            }
-          </select>
-
-          <label for="quote">Devis création (€)</label>
-          <input
-            id="quote"
-            name="creationQuote"
-            type="number"
-            min="0"
-            step="0.01"
-            [(ngModel)]="form.creationQuote"
-          />
-
-          <label for="subscription">Abonnement mensuel (€)</label>
-          <input
-            id="subscription"
-            name="monthlySubscription"
-            type="number"
-            min="0"
-            step="0.01"
-            [(ngModel)]="form.monthlySubscription"
-          />
-
-          <label for="followup">Prochaine relance</label>
-          <input
-            id="followup"
-            name="nextFollowUp"
-            type="date"
-            [(ngModel)]="form.nextFollowUp"
-          />
-
-          <label for="notes">Notes</label>
-          <textarea
-            id="notes"
-            name="notes"
-            rows="5"
-            [(ngModel)]="form.notes"
-            placeholder="Besoins, échanges, informations utiles..."
-          ></textarea>
-        </section>
-
-        @if (saveError()) {
-        <p class="error-message">{{ saveError() }}</p>
-        }
-
-        <div class="form-actions">
           <button
             type="button"
             class="secondary-btn"
-            (click)="cancelEditing()"
-          >
-            Annuler
+            [disabled]="saving()"
+            (click)="cancelEditing()">
+
+            Fermer la modification
+
           </button>
 
-          <button
-            type="submit"
-            class="primary-btn"
-            [disabled]="prospectForm.invalid || !form.name.trim() || saving()"
-          >
-            {{ saving()
-              ? 'Enregistrement...'
-              : isNew
-                ? 'Créer le prospect'
-                : 'Enregistrer' }}
-          </button>
-        </div>
+        </section>
 
-      </form>
+      } @else {
+
+        <form
+          class="detail-grid"
+          #prospectForm="ngForm"
+          (ngSubmit)="prospectForm.valid && save()">
+
+          <section class="panel">
+
+            <h2>Informations générales</h2>
+
+            <label for="name">
+              Nom de la course *
+            </label>
+
+            <input
+              id="name"
+              name="name"
+              [(ngModel)]="form.name"
+              placeholder="Ex : Trail de la Margeride"
+              required
+            />
+
+            <label for="location">
+              Localisation
+            </label>
+
+            <input
+              id="location"
+              name="location"
+              [(ngModel)]="form.location"
+            />
+
+            <label for="email">E-mail</label>
+
+            <input
+              id="email"
+              name="email"
+              type="email"
+              email
+              [(ngModel)]="form.email"
+            />
+
+            <label for="phone">Téléphone</label>
+
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              [(ngModel)]="form.phone"
+            />
+
+            <label for="website">
+              Site internet actuel
+            </label>
+
+            <input
+              id="website"
+              name="website"
+              [(ngModel)]="form.website"
+              placeholder="https://..."
+            />
+
+          </section>
+
+          <section class="panel">
+
+            <h2>Suivi commercial</h2>
+
+            <label for="status">Statut</label>
+
+            <select
+              id="status"
+              name="status"
+              [(ngModel)]="form.status">
+
+              @if (isLegacyClient()) {
+
+                <option value="Client">
+                  Client — conversion à finaliser
+                </option>
+
+              }
+
+              @for (status of statuses; track status) {
+
+                <option [value]="status">
+                  {{ status }}
+                </option>
+
+              }
+
+            </select>
+
+            <label for="quote">
+              Devis création (€)
+            </label>
+
+            <input
+              id="quote"
+              name="creationQuote"
+              type="number"
+              min="0"
+              step="0.01"
+              [(ngModel)]="form.creationQuote"
+            />
+
+            <label for="subscription">
+              Abonnement mensuel (€)
+            </label>
+
+            <input
+              id="subscription"
+              name="monthlySubscription"
+              type="number"
+              min="0"
+              step="0.01"
+              [(ngModel)]="form.monthlySubscription"
+            />
+
+            <label for="followup">
+              Prochaine relance
+            </label>
+
+            <input
+              id="followup"
+              name="nextFollowUp"
+              type="date"
+              [disabled]="
+                form.status === 'Client' ||
+                (!isNew && !relationReady())
+              "
+              [(ngModel)]="form.nextFollowUp"
+            />
+
+            @if (form.status === 'Client') {
+
+              <p class="field-hint">
+
+                Les relances commerciales ne sont plus
+                disponibles avec le statut Client.
+
+              </p>
+
+            }
+
+            <label for="notes">Notes</label>
+
+            <textarea
+              id="notes"
+              name="notes"
+              rows="5"
+              [(ngModel)]="form.notes"
+              placeholder="Besoins, échanges, informations utiles...">
+            </textarea>
+
+          </section>
+
+          @if (saveError()) {
+
+            <p class="error-message" role="alert">
+              {{ saveError() }}
+            </p>
+
+          }
+
+          <div class="form-actions">
+
+            <button
+              type="button"
+              class="secondary-btn"
+              [disabled]="saving()"
+              (click)="cancelEditing()">
+
+              Annuler
+
+            </button>
+
+            <button
+              type="submit"
+              class="primary-btn"
+              [disabled]="
+                prospectForm.invalid ||
+                !form.name.trim() ||
+                saving() ||
+                !canEdit()
+              ">
+
+              {{ saving()
+                ? 'Enregistrement...'
+                : isNew
+                  ? 'Créer le prospect'
+                  : 'Enregistrer' }}
+
+            </button>
+
+          </div>
+
+        </form>
+
+      }
 
     } @else if (prospect(); as p) {
+
+      <!-- Consultation de la fiche -->
 
       <div class="detail-grid">
 
         <section class="panel">
+
           <h2>Informations générales</h2>
 
           <div class="field">
+
             <span>Nom</span>
             <strong>{{ p.name }}</strong>
+
           </div>
 
           <div class="field">
+
             <span>Localisation</span>
-            <strong>{{ p.location || 'Non renseignée' }}</strong>
+
+            <strong>
+              {{ p.location || 'Non renseignée' }}
+            </strong>
+
           </div>
 
           <div class="field">
+
             <span>E-mail</span>
-            <strong>{{ p.email || 'Non renseigné' }}</strong>
+
+            <strong>
+              {{ p.email || 'Non renseigné' }}
+            </strong>
+
           </div>
 
           <div class="field">
+
             <span>Téléphone</span>
-            <strong>{{ p.phone || 'Non renseigné' }}</strong>
+
+            <strong>
+              {{ p.phone || 'Non renseigné' }}
+            </strong>
+
           </div>
 
           <div class="field">
+
             <span>Site internet actuel</span>
-            <strong>{{ p.website || 'Non renseigné' }}</strong>
+
+            <strong>
+              {{ p.website || 'Non renseigné' }}
+            </strong>
+
           </div>
+
         </section>
 
         <section class="panel">
-          <h2>Suivi commercial</h2>
+
+          <h2>
+
+            {{ isConverted()
+              ? 'Suivi commercial historique'
+              : 'Suivi commercial' }}
+
+          </h2>
 
           <div class="field">
+
             <span>Statut</span>
-            <strong class="status">{{ p.status }}</strong>
+
+            <strong class="status">
+
+              {{ isConverted()
+                ? 'Client'
+                : p.status }}
+
+            </strong>
+
           </div>
 
           <div class="field">
+
             <span>Devis création</span>
-            <strong>{{ p.creationQuote ?? '—' }} €</strong>
+
+            <strong>
+
+              {{ p.creationQuote != null
+                ? p.creationQuote + ' €'
+                : '—' }}
+
+            </strong>
+
           </div>
 
           <div class="field">
+
             <span>Abonnement mensuel</span>
-            <strong>{{ p.monthlySubscription ?? '—' }} €/mois</strong>
+
+            <strong>
+
+              {{ p.monthlySubscription != null
+                ? p.monthlySubscription + ' €/mois'
+                : '—' }}
+
+            </strong>
+
           </div>
 
           <div class="field">
+
             <span>Prochaine relance</span>
-            <strong>{{ p.nextFollowUp || 'Non planifiée' }}</strong>
+
+            <strong>
+
+              {{ isConverted() || isLegacyClient()
+                ? 'Sans objet'
+                : p.nextFollowUp || 'Non planifiée' }}
+
+            </strong>
+
           </div>
 
           <div class="field notes">
+
             <span>Notes</span>
-            <p>{{ p.notes || 'Aucune note pour le moment.' }}</p>
+
+            <p>
+
+              {{ p.notes
+                || 'Aucune note pour le moment.' }}
+
+            </p>
+
           </div>
+
         </section>
 
       </div>
@@ -332,181 +600,293 @@
   } @else {
 
     <section class="panel">
+
       <h2>Prospect introuvable</h2>
-      <a routerLink="/prospects">Retour à la liste</a>
+
+      <a routerLink="/prospects">
+        Retour à la liste
+      </a>
+
     </section>
 
   }
 
+  <!-- Messagerie et historique -->
 
-@if (confirmDelete()) {
-  <div class="modal-overlay">
+  @if (prospect(); as currentProspect) {
 
-    <section
-      class="confirmation-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="delete-title"
-    >
-      <div class="warning-icon">!</div>
+    @if (!isNew && !editing()) {
 
-      <h2 id="delete-title">Supprimer ce prospect ?</h2>
+      @if (
+        mailMessage() ||
+        (
+          !isConverted() &&
+          !isLegacyClient() &&
+          relationReady()
+        )
+      ) {
 
-      <p>
-        Tu es sur le point de supprimer
-        <strong>{{ prospect()?.name }}</strong>.
-        Cette action est irréversible.
-      </p>
+        <div class="mail-toolbar">
 
-      @if (saveError()) {
-        <p class="error-message">{{ saveError() }}</p>
+          @if (mailMessage()) {
+
+            <div class="mail-message" role="status">
+
+              {{ mailMessage() }}
+
+              <button
+                type="button"
+                aria-label="Fermer la notification"
+                (click)="mailMessage.set(null)">
+
+                ×
+
+              </button>
+
+            </div>
+
+          }
+
+          @if (
+            !isConverted() &&
+            !isLegacyClient() &&
+            relationReady()
+          ) {
+
+            <button
+              type="button"
+              class="primary-btn"
+              [disabled]="!canSendMail()"
+              [attr.title]="
+                currentProspect.email?.trim()
+                  ? 'Envoyer un e-mail'
+                  : 'Aucune adresse e-mail renseignée'
+              "
+              (click)="openMail()">
+
+              ✉ Envoyer un e-mail
+
+            </button>
+
+          }
+
+        </div>
+
       }
 
-      <div class="modal-actions">
+      <div class="history-section">
 
-        <button
-          class="secondary-btn"
-          [disabled]="deleting()"
-          (click)="confirmDelete.set(false)"
-        >
-          Annuler
-        </button>
+        @if (linkedClient(); as client) {
 
-        <button
-          class="danger-btn"
-          [disabled]="deleting()"
-          (click)="deleteProspect()"
-        >
-          {{ deleting() ? 'Suppression...' : 'Supprimer' }}
-        </button>
+          <div class="history-notice">
+
+            <div>
+
+              <strong>Historique commercial conservé</strong>
+
+              <p>
+
+                Les nouvelles interactions doivent être
+                ajoutées depuis la fiche client.
+
+              </p>
+
+            </div>
+
+            <a
+              class="client-btn"
+              [routerLink]="['/clients', client.id]">
+
+              Ouvrir la fiche client →
+
+            </a>
+
+          </div>
+
+        }
+
+        @for (
+          version of [historyVersion()];
+          track version
+        ) {
+
+          <app-interaction-history
+            [prospectId]="currentProspect.id"
+            [readOnly]="historyReadOnly()">
+          </app-interaction-history>
+
+        }
 
       </div>
-    </section>
 
-  </div>
-}
+    }
 
+    <!-- Compositeur -->
 
-</div>
+    @if (mailOpen()) {
 
+      <app-mail-composer
+        mode="prospect"
+        [prospect]="currentProspect"
+        (closed)="closeMail()"
+        (sent)="onMailSent($event)">
+      </app-mail-composer>
 
-@if (prospect(); as currentProspect) {
-  @if (!isNew && !editing()) {
+    }
 
-    <div class="mail-toolbar">
+  }
 
-      @if (mailMessage()) {
-        <div class="mail-message" role="status">
-          {{ mailMessage() }}
+  <!-- Confirmation de suppression -->
+
+  @if (confirmDelete()) {
+
+    <div class="modal-overlay">
+
+      <section
+        class="confirmation-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-title">
+
+        <div class="warning-icon">!</div>
+
+        <h2 id="delete-title">
+          Supprimer ce prospect ?
+        </h2>
+
+        <p>
+
+          Tu es sur le point de supprimer
+          <strong>{{ prospect()?.name }}</strong>.
+
+          Cette action est irréversible.
+
+        </p>
+
+        @if (saveError()) {
+
+          <p class="error-message" role="alert">
+            {{ saveError() }}
+          </p>
+
+        }
+
+        <div class="modal-actions">
 
           <button
-            aria-label="Fermer la notification"
-            (click)="mailMessage.set(null)"
-          >
-            ×
-          </button>
-        </div>
-      }
+            type="button"
+            class="secondary-btn"
+            [disabled]="deleting()"
+            (click)="confirmDelete.set(false)">
 
-      <button
-        class="primary-btn"
-        [disabled]="!currentProspect.email?.trim()"
-        (click)="mailOpen.set(true)"
-      >
-        ✉ Envoyer un e-mail
-      </button>
+            Annuler
+
+          </button>
+
+          <button
+            type="button"
+            class="danger-btn"
+            [disabled]="!canDelete()"
+            (click)="deleteProspect()">
+
+            {{ deleting()
+              ? 'Suppression...'
+              : 'Supprimer' }}
+
+          </button>
+
+        </div>
+
+      </section>
 
     </div>
 
-    @for (version of [historyVersion()]; track version) {
-      <app-interaction-history
-        [prospectId]="currentProspect.id"
-      ></app-interaction-history>
-    }
-
-    @if (mailOpen()) {
-      <app-mail-composer
-        [prospect]="currentProspect"
-        (closed)="mailOpen.set(false)"
-        (sent)="onMailSent($event)"
-      ></app-mail-composer>
-    }
-
   }
-}
 
-@if (confirmConvert()) {
+  <!-- Confirmation de conversion -->
 
-  <div class="modal-overlay">
+  @if (confirmConvert()) {
 
-    <section
-      class="confirmation-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="convert-title">
+    <div class="modal-overlay">
 
-      <div class="conversion-icon">✓</div>
+      <section
+        class="confirmation-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="convert-title">
 
-      <h2 id="convert-title">
-        Convertir en client ?
-      </h2>
+        <div class="conversion-icon">✓</div>
 
-      <p>
-        Tu es sur le point de convertir
-        <strong>{{ prospect()?.name }}</strong>
-        en client MargeWeb.
-      </p>
+        <h2 id="convert-title">
+          Convertir en client ?
+        </h2>
 
-      <div class="conversion-summary">
+        <p>
 
-        <div>✓ Création de la fiche client</div>
-        <div>✓ Récupération des coordonnées</div>
-        <div>✓ Conservation de l'historique</div>
-        <div>✓ Conservation des e-mails</div>
-        <div>✓ Actualisation du statut commercial</div>
-        <div>✓ Annulation de la prochaine relance</div>
+          Tu es sur le point de convertir
+          <strong>{{ prospect()?.name }}</strong>
+          en client MargeWeb.
 
-      </div>
-
-      <p class="conversion-note">
-        Aucun abonnement, devis ou facture
-        ne sera créé automatiquement.
-      </p>
-
-      @if (conversionError()) {
-
-        <p class="error-message">
-          {{ conversionError() }}
         </p>
 
-      }
+        <div class="conversion-summary">
 
-      <div class="modal-actions">
+          <div>✓ Création de la fiche client</div>
+          <div>✓ Récupération des coordonnées</div>
+          <div>✓ Conservation de l'historique</div>
+          <div>✓ Conservation des e-mails</div>
+          <div>✓ Transfert des brouillons</div>
+          <div>✓ Actualisation du statut commercial</div>
+          <div>✓ Annulation de la prochaine relance</div>
+          <div>✓ Fiche prospect en lecture seule</div>
 
-        <button
-          class="secondary-btn"
-          [disabled]="converting()"
-          (click)="cancelConversion()">
+        </div>
 
-          Annuler
+        <p class="conversion-note">
 
-        </button>
+          Aucun abonnement, devis ou facture
+          ne sera créé automatiquement.
 
-        <button
-          class="convert-btn"
-          [disabled]="converting() || !canConvert()"
-          (click)="convertToClient()">
+        </p>
 
-          {{ converting()
-            ? 'Conversion en cours...'
-            : 'Confirmer la conversion' }}
+        @if (conversionError()) {
 
-        </button>
+          <p class="error-message" role="alert">
+            {{ conversionError() }}
+          </p>
 
-      </div>
+        }
 
-    </section>
+        <div class="modal-actions">
 
-  </div>
+          <button
+            type="button"
+            class="secondary-btn"
+            [disabled]="converting()"
+            (click)="cancelConversion()">
 
-}
+            Annuler
+
+          </button>
+
+          <button
+            type="button"
+            class="convert-btn"
+            [disabled]="!canConvert()"
+            (click)="convertToClient()">
+
+            {{ converting()
+              ? 'Conversion en cours...'
+              : 'Confirmer la conversion' }}
+
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  }
+
+</div>

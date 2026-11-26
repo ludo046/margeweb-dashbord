@@ -723,3 +723,85 @@ button {
   }
 
 }
+
+// Associations commerciales
+
+.client-tag {
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: #e8f0ff;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.prospect-tag {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.contact-association {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.linked-client {
+  display: inline-block;
+  background: #e8f0ff;
+  color: #2563eb;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  transition: background .15s ease;
+
+  &:hover {
+    background: #dbeafe;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+  }
+}
+
+.linked-prospect {
+
+  &:hover {
+    background: #ccece4;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #087f73;
+    outline-offset: 3px;
+  }
+
+}
+
+.archived-contact {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}

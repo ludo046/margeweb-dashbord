@@ -6,7 +6,7 @@
     <div>
       <span class="eyebrow">COMMUNICATION</span>
       <h2>Messagerie</h2>
-      <p>Gérez vos échanges avec vos prospects.</p>
+      <p>Gérez vos échanges avec vos prospects et clients.</p>
     </div>
 
     <div class="header-actions">
@@ -294,10 +294,16 @@
 
                   </span>
 
-                  @if (draft.prospect) {
+                  @if (draft.client; as client) {
+
+                    <span class="client-tag">
+                      Client : {{ client.name }}
+                    </span>
+
+                  } @else if (draft.prospect; as prospect) {
 
                     <span class="prospect-tag">
-                      {{ draft.prospect.name }}
+                      Prospect : {{ prospect.name }}
                     </span>
 
                   }
@@ -370,13 +376,19 @@
                     {{ email.textContent }}
                   </div>
 
-                  @if (email.prospect) {
+@if (email.client; as client) {
 
-                    <span class="prospect-tag">
-                      Prospect associé
-                    </span>
+  <span class="client-tag">
+    Client : {{ client.name }}
+  </span>
 
-                  }
+} @else if (email.prospect; as prospect) {
+
+  <span class="prospect-tag">
+    Prospect : {{ prospect.name }}
+  </span>
+
+}
 
                 </div>
 
@@ -456,17 +468,39 @@
 
             </div>
 
-            @if (draft.prospect; as prospect) {
+@if (draft.client; as client) {
 
-              <a
-                class="linked-prospect"
-                [routerLink]="['/prospects', prospect.id]">
+  <div class="contact-association">
 
-                Voir le prospect : {{ prospect.name }}
+    <a
+      class="linked-client"
+      [routerLink]="['/clients', client.id]">
 
-              </a>
+      Voir le client : {{ client.name }} →
 
-            }
+    </a>
+
+    @if (client.status === 'Archivé') {
+
+      <span class="archived-contact">
+        Client archivé
+      </span>
+
+    }
+
+  </div>
+
+} @else if (draft.prospect; as prospect) {
+
+  <a
+    class="linked-prospect"
+    [routerLink]="['/prospects', prospect.id]">
+
+    Voir le prospect : {{ prospect.name }} →
+
+  </a>
+
+}
 
           </div>
 
@@ -564,17 +598,39 @@
 
             </div>
 
-            @if (email.prospect; as prospect) {
+@if (email.client; as client) {
 
-              <a
-                class="linked-prospect"
-                [routerLink]="['/prospects', prospect.id]">
+  <div class="contact-association">
 
-                Voir le prospect : {{ prospect.name }}
+    <a
+      class="linked-client"
+      [routerLink]="['/clients', client.id]">
 
-              </a>
+      Voir le client : {{ client.name }} →
 
-            }
+    </a>
+
+    @if (client.status === 'Archivé') {
+
+      <span class="archived-contact">
+        Client archivé
+      </span>
+
+    }
+
+  </div>
+
+} @else if (email.prospect; as prospect) {
+
+  <a
+    class="linked-prospect"
+    [routerLink]="['/prospects', prospect.id]">
+
+    Voir le prospect : {{ prospect.name }} →
+
+  </a>
+
+}
 
           </div>
 

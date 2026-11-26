@@ -5,6 +5,7 @@ const sequelize = require('../config/database');
 // Liste des migrations dans leur ordre d'exécution
 
 const migrations = [
+  require('./000-initial-schema'),
   require('./001-client-relations')
 ];
 

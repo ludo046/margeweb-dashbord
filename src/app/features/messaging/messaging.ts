@@ -140,49 +140,52 @@ export class Messaging {
 
   readonly filteredEmails = computed(() => {
 
-    const search = this.search().trim().toLowerCase();
+  const search = this.search().trim().toLowerCase();
 
-    return this.emails().filter(email => {
+  return this.emails().filter(email => {
 
-      const matchesSearch = [
-        email.fromName,
-        email.fromEmail,
-        email.toEmail,
-        email.subject,
-        email.textContent
-      ].some(value =>
-        (value || '').toLowerCase().includes(search)
-      );
+    const matchesSearch = [
+      email.fromName,
+      email.fromEmail,
+      email.toEmail,
+      email.subject,
+      email.textContent,
+      email.client?.name,
+      email.prospect?.name
+    ].some(value =>
+      (value || '').toLowerCase().includes(search)
+    );
 
-      const matchesUnread =
-        !this.isInboxFolder() ||
-        !this.unreadOnly() ||
-        !email.isRead;
+    const matchesUnread =
+      !this.isInboxFolder() ||
+      !this.unreadOnly() ||
+      !email.isRead;
 
-      return matchesSearch && matchesUnread;
+    return matchesSearch && matchesUnread;
 
-    });
+  });
+
+});
+
+readonly filteredDrafts = computed(() => {
+
+  const search = this.search().trim().toLowerCase();
+
+  return this.drafts().filter(draft => {
+
+    return [
+      draft.toEmail,
+      draft.subject,
+      draft.content,
+      draft.client?.name,
+      draft.prospect?.name
+    ].some(value =>
+      (value || '').toLowerCase().includes(search)
+    );
 
   });
 
-  readonly filteredDrafts = computed(() => {
-
-    const search = this.search().trim().toLowerCase();
-
-    return this.drafts().filter(draft => {
-
-      return [
-        draft.toEmail,
-        draft.subject,
-        draft.content,
-        draft.prospect?.name
-      ].some(value =>
-        (value || '').toLowerCase().includes(search)
-      );
-
-    });
-
-  });
+});
 
   constructor() {
 
@@ -353,23 +356,26 @@ export class Messaging {
 
   draftModeLabel(mode: MailMode): string {
 
-    switch (mode) {
+  switch (mode) {
 
-      case 'prospect':
-        return 'Message prospect';
+    case 'client':
+      return 'Message client';
 
-      case 'reply':
-        return 'Réponse';
+    case 'prospect':
+      return 'Message prospect';
 
-      case 'forward':
-        return 'Transfert';
+    case 'reply':
+      return 'Réponse';
 
-      default:
-        return 'Nouveau message';
+    case 'forward':
+      return 'Transfert';
 
-    }
+    default:
+      return 'Nouveau message';
 
   }
+
+}
 
   selectDraft(draft: Draft): void {
 

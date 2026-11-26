@@ -1,4 +1,3 @@
-
 import {
   Injectable,
   inject,
@@ -10,10 +9,12 @@ import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { Email } from './emails';
+import { ClientStatus } from './clients';
 
 export type DraftMode =
   'new' |
   'prospect' |
+  'client' |
   'reply' |
   'forward';
 
@@ -23,12 +24,15 @@ export interface DraftInput {
   subject: string;
   content: string;
   prospectId: number | null;
+  clientId?: number | null;
   originalEmailId: number | null;
 }
 
 export interface Draft extends DraftInput {
 
   id: number;
+
+  clientId: number | null;
 
   createdAt: string;
   updatedAt: string;
@@ -37,6 +41,13 @@ export interface Draft extends DraftInput {
     id: number;
     name: string;
     email: string;
+  } | null;
+
+  client?: {
+    id: number;
+    name: string;
+    email: string;
+    status: ClientStatus;
   } | null;
 
   originalEmail?: Email | null;
@@ -130,6 +141,44 @@ export class DraftsService {
 
   }
 
+  // Récupérer les brouillons d'un prospect
+
+  async findByProspect(
+    prospectId: number
+  ): Promise<Draft[]> {
+
+    return firstValueFrom(
+      this.http.get<Draft[]>(
+        this.apiUrl,
+        {
+          params: {
+            prospectId: String(prospectId)
+          }
+        }
+      )
+    );
+
+  }
+
+  // Récupérer les brouillons d'un client
+
+  async findByClient(
+    clientId: number
+  ): Promise<Draft[]> {
+
+    return firstValueFrom(
+      this.http.get<Draft[]>(
+        this.apiUrl,
+        {
+          params: {
+            clientId: String(clientId)
+          }
+        }
+      )
+    );
+
+  }
+
   // Créer un brouillon
 
   async create(data: DraftInput): Promise<Draft> {
@@ -194,4 +243,3 @@ export class DraftsService {
   }
 
 }
-

@@ -1,14 +1,19 @@
-
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
+
 const {
   sequelize,
   Email,
   Prospect,
+  Client,
   Interaction
 } = require('../models');
 
 let syncing = false;
+
+// ==========================================
+// CONNEXION IMAP
+// ==========================================
 
 function createClient() {
 
@@ -80,69 +85,190 @@ async function listFolders() {
   }
 }
 
-async function getProspectsByEmail() {
+// ==========================================
+// RECONNAISSANCE DES CONTACTS
+// ==========================================
 
-  const prospects = await Prospect.findAll();
+function normalizeEmail(address) {
+
+  return String(address || '')
+    .trim()
+    .toLowerCase();
+
+}
+
+async function getContactsByEmail() {
+
+  const [prospects, clients] = await Promise.all([
+    Prospect.findAll(),
+    Client.findAll()
+  ]);
+
   const map = new Map();
+
+  const clientsByProspect = new Map();
+
+  for (const client of clients) {
+
+    if (client.prospectId != null) {
+
+      clientsByProspect.set(
+        client.prospectId,
+        client
+      );
+
+    }
+
+  }
+
+  function addContact(address, contact) {
+
+    const normalized = normalizeEmail(address);
+
+    if (!normalized) return;
+
+    if (!map.has(normalized)) {
+
+      map.set(normalized, new Map());
+
+    }
+
+    const key = contact.clientId != null
+      ? `client:${contact.clientId}`
+      : `prospect:${contact.prospectId}`;
+
+    map.get(normalized).set(key, contact);
+
+  }
+
+  // Ajouter les prospects
 
   for (const prospect of prospects) {
 
-    const address = prospect.email
-      ?.trim()
-      .toLowerCase();
+    const linkedClient =
+      clientsByProspect.get(prospect.id);
 
-    if (!address) continue;
+    addContact(prospect.email, {
 
-    if (!map.has(address)) {
-      map.set(address, []);
-    }
+      prospectId: prospect.id,
+      clientId: linkedClient?.id ?? null
 
-    map.get(address).push(prospect);
+    });
+
+  }
+
+  // Ajouter les clients
+
+  for (const client of clients) {
+
+    addContact(client.email, {
+
+      prospectId: client.prospectId ?? null,
+      clientId: client.id
+
+    });
 
   }
 
   return map;
+
 }
 
-function findMatchingProspect(addresses, prospectsByEmail) {
+function findMatchingContact(addresses, contactsByEmail) {
 
   const matches = new Map();
 
+  const ownAddresses = new Set([
+    normalizeEmail(process.env.IMAP_USER),
+    normalizeEmail(process.env.SMTP_USER)
+  ]);
+
   for (const address of addresses) {
 
-    const normalized = address
-      ?.trim()
-      .toLowerCase();
+    const normalized = normalizeEmail(address);
 
-    if (!normalized) continue;
+    if (!normalized || ownAddresses.has(normalized)) {
+      continue;
+    }
 
-    const prospects =
-      prospectsByEmail.get(normalized) || [];
+    const contacts = contactsByEmail.get(normalized);
 
-    for (const prospect of prospects) {
+    if (!contacts) continue;
 
-      matches.set(prospect.id, prospect);
+    for (const [key, contact] of contacts) {
+
+      matches.set(key, contact);
 
     }
+
   }
 
   return matches.size === 1
     ? [...matches.values()][0]
     : null;
+
 }
+
+// ==========================================
+// ANALYSE DES MESSAGES
+// ==========================================
+
+function getMessageAddresses(parsed, localFolder) {
+
+  const sender = parsed.from?.value?.[0];
+
+  const fromEmail = normalizeEmail(
+    sender?.address
+  );
+
+  const recipients = Array.isArray(parsed.to)
+    ? parsed.to
+    : parsed.to
+      ? [parsed.to]
+      : [];
+
+  const recipientAddresses = recipients
+    .flatMap(recipient => recipient.value || [])
+    .map(recipient => recipient.address)
+    .filter(Boolean);
+
+  const toEmail = recipients
+    .map(recipient => recipient.text || '')
+    .join(', ');
+
+  return {
+
+    sender,
+    fromEmail,
+    toEmail,
+
+    matchingAddresses:
+      localFolder === 'SENT'
+        ? recipientAddresses
+        : [fromEmail]
+
+  };
+
+}
+
+// ==========================================
+// SYNCHRONISATION D'UN DOSSIER
+// ==========================================
 
 async function syncFolder(
   client,
   remoteFolder,
   localFolder,
-  prospectsByEmail
+  contactsByEmail
 ) {
 
   const stats = {
     scanned: 0,
     imported: 0,
     updated: 0,
-    linked: 0
+    linked: 0,
+    linkedClients: 0,
+    linkedProspects: 0
   };
 
   const lock = await client.getMailboxLock(
@@ -160,7 +286,8 @@ async function syncFolder(
       return stats;
     }
 
-    // Les 100 derniers messages du dossier.
+    // Les 100 derniers messages du dossier
+
     const first = Math.max(
       1,
       client.mailbox.exists - 99
@@ -193,116 +320,230 @@ async function syncFolder(
 
       });
 
+      // ====================================
+      // MESSAGE DÉJÀ IMPORTÉ
+      // ====================================
+
       if (existing) {
+
+        const changes = {};
 
         if (existing.isRead !== isRead) {
 
-          await existing.update({ isRead });
+          changes.isRead = isRead;
+
+        }
+
+        let newlyLinked = null;
+
+        // Ne jamais écraser une association existante
+
+        if (
+          existing.prospectId == null &&
+          existing.clientId == null
+        ) {
+
+          const parsed = await simpleParser(
+            message.source
+          );
+
+          const addresses = getMessageAddresses(
+            parsed,
+            localFolder
+          );
+
+          newlyLinked = findMatchingContact(
+            addresses.matchingAddresses,
+            contactsByEmail
+          );
+
+          if (newlyLinked) {
+
+            changes.prospectId =
+              newlyLinked.prospectId;
+
+            changes.clientId =
+              newlyLinked.clientId;
+
+          }
+
+        }
+
+        if (Object.keys(changes).length > 0) {
+
+          await sequelize.transaction(
+            async transaction => {
+
+              await existing.update(
+                changes,
+                { transaction }
+              );
+
+              // Créer l'interaction uniquement
+              // pour un message reçu auparavant
+              // sans association
+
+              if (
+                newlyLinked &&
+                localFolder === 'INBOX'
+              ) {
+
+                await Interaction.create({
+
+                  prospectId: newlyLinked.prospectId,
+                  clientId: newlyLinked.clientId,
+
+                  type: 'email_received',
+
+                  subject:
+                    existing.subject || '(Sans objet)',
+
+                  content:
+                    existing.textContent || '',
+
+                  occurredAt:
+                    existing.receivedAt
+
+                }, { transaction });
+
+              }
+
+            }
+          );
+
           stats.updated++;
+
+          if (newlyLinked) {
+
+            stats.linked++;
+
+            if (newlyLinked.clientId != null) {
+
+              stats.linkedClients++;
+
+            } else {
+
+              stats.linkedProspects++;
+
+            }
+
+          }
 
         }
 
         continue;
+
       }
+
+      // ====================================
+      // NOUVEAU MESSAGE
+      // ====================================
 
       const parsed = await simpleParser(
         message.source
       );
 
-      const sender = parsed.from?.value?.[0];
+      const addresses = getMessageAddresses(
+        parsed,
+        localFolder
+      );
 
-      const fromEmail = sender?.address
-        ?.trim()
-        .toLowerCase() || '';
-
-      const recipients = Array.isArray(parsed.to)
-        ? parsed.to
-        : parsed.to
-          ? [parsed.to]
-          : [];
-
-      const recipientAddresses = recipients
-        .flatMap(recipient => recipient.value || [])
-        .map(recipient => recipient.address)
-        .filter(Boolean);
-
-      const toEmail = recipients
-        .map(recipient => recipient.text || '')
-        .join(', ');
-
-      const matchingAddresses =
-        localFolder === 'SENT'
-          ? recipientAddresses
-          : [fromEmail];
-
-      const prospect = findMatchingProspect(
-        matchingAddresses,
-        prospectsByEmail
+      const contact = findMatchingContact(
+        addresses.matchingAddresses,
+        contactsByEmail
       );
 
       const subject =
         parsed.subject || '(Sans objet)';
 
-      const content = parsed.text || '';
+      const content =
+        parsed.text || '';
 
       const receivedAt = message.internalDate
         || parsed.date
         || new Date();
 
-      await sequelize.transaction(async transaction => {
+      await sequelize.transaction(
+        async transaction => {
 
-        await Email.create({
+          await Email.create({
 
-          uid: message.uid,
-          uidValidity,
-          messageId: parsed.messageId || null,
+            uid: message.uid,
+            uidValidity,
+            messageId: parsed.messageId || null,
 
-          folder: localFolder,
+            folder: localFolder,
 
-          fromName: sender?.name || '',
-          fromEmail,
-          toEmail,
+            fromName:
+              addresses.sender?.name || '',
 
-          subject,
-          textContent: content,
+            fromEmail:
+              addresses.fromEmail,
 
-          htmlContent:
-            typeof parsed.html === 'string'
-              ? parsed.html
-              : '',
+            toEmail:
+              addresses.toEmail,
 
-          receivedAt,
-          isRead,
-
-          hasAttachments:
-            (parsed.attachments?.length || 0) > 0,
-
-          prospectId: prospect?.id || null
-
-        }, { transaction });
-
-        // Les messages reçus alimentent
-        // automatiquement l'historique commercial.
-        if (prospect && localFolder === 'INBOX') {
-
-          await Interaction.create({
-
-            prospectId: prospect.id,
-            type: 'email_received',
             subject,
-            content,
-            occurredAt: receivedAt
+            textContent: content,
+
+            htmlContent:
+              typeof parsed.html === 'string'
+                ? parsed.html
+                : '',
+
+            receivedAt,
+            isRead,
+
+            hasAttachments:
+              (parsed.attachments?.length || 0) > 0,
+
+            prospectId:
+              contact?.prospectId ?? null,
+
+            clientId:
+              contact?.clientId ?? null
 
           }, { transaction });
 
-        }
+          // Historique des messages reçus
 
-      });
+          if (contact && localFolder === 'INBOX') {
+
+            await Interaction.create({
+
+              prospectId: contact.prospectId,
+              clientId: contact.clientId,
+
+              type: 'email_received',
+
+              subject,
+              content,
+
+              occurredAt: receivedAt
+
+            }, { transaction });
+
+          }
+
+        }
+      );
 
       stats.imported++;
 
-      if (prospect) {
+      if (contact) {
+
         stats.linked++;
+
+        if (contact.clientId != null) {
+
+          stats.linkedClients++;
+
+        } else {
+
+          stats.linkedProspects++;
+
+        }
+
       }
 
     }
@@ -314,7 +555,12 @@ async function syncFolder(
     lock.release();
 
   }
+
 }
+
+// ==========================================
+// SYNCHRONISATION GLOBALE
+// ==========================================
 
 async function syncAll() {
 
@@ -334,12 +580,18 @@ async function syncAll() {
   let client;
 
   const stats = {
+
     scanned: 0,
     imported: 0,
     updated: 0,
     linked: 0,
+
+    linkedClients: 0,
+    linkedProspects: 0,
+
     folders: {},
     warnings: []
+
   };
 
   try {
@@ -358,17 +610,21 @@ async function syncAll() {
     );
 
     const targets = [
+
       {
         remote: 'INBOX',
         local: 'INBOX'
       }
+
     ];
 
     if (sentFolder) {
 
       targets.push({
+
         remote: sentFolder.path,
         local: 'SENT'
+
       });
 
     } else {
@@ -379,16 +635,18 @@ async function syncAll() {
 
     }
 
-    const prospectsByEmail =
-      await getProspectsByEmail();
+    const contactsByEmail =
+      await getContactsByEmail();
 
     for (const target of targets) {
 
       const result = await syncFolder(
+
         client,
         target.remote,
         target.local,
-        prospectsByEmail
+        contactsByEmail
+
       );
 
       stats.folders[target.local] = result;
@@ -397,6 +655,10 @@ async function syncAll() {
       stats.imported += result.imported;
       stats.updated += result.updated;
       stats.linked += result.linked;
+
+      stats.linkedClients += result.linkedClients;
+
+      stats.linkedProspects += result.linkedProspects;
 
     }
 
@@ -415,17 +677,24 @@ async function syncAll() {
       syncing = false;
 
     }
+
   }
+
 }
 
-// Compatibilité avec le contrôleur existant.
+// Compatibilité avec le contrôleur existant
+
 async function syncInbox() {
+
   return syncAll();
+
 }
 
 module.exports = {
+
   verifyConnection,
   listFolders,
   syncInbox,
   syncAll
+
 };

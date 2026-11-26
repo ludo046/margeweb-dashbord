@@ -1,4 +1,3 @@
-
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -15,9 +14,13 @@ const Draft = sequelize.define('Draft', {
     allowNull: false,
     defaultValue: 'new',
     validate: {
-      isIn: [
-        ['new', 'prospect', 'reply', 'forward']
-      ]
+      isIn: [[
+        'new',
+        'prospect',
+        'client',
+        'reply',
+        'forward'
+      ]]
     }
   },
 
@@ -46,7 +49,19 @@ const Draft = sequelize.define('Draft', {
       model: 'prospects',
       key: 'id'
     },
-    onDelete: 'SET NULL'
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
+  },
+
+  clientId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'clients',
+      key: 'id'
+    },
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
   },
 
   originalEmailId: {
@@ -56,7 +71,8 @@ const Draft = sequelize.define('Draft', {
       model: 'emails',
       key: 'id'
     },
-    onDelete: 'SET NULL'
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
   }
 
 }, {
@@ -66,15 +82,23 @@ const Draft = sequelize.define('Draft', {
   timestamps: true,
 
   indexes: [
+
     {
       fields: ['prospectId']
     },
+
+    {
+      fields: ['clientId']
+    },
+
     {
       fields: ['originalEmailId']
     },
+
     {
       fields: ['updatedAt']
     }
+
   ]
 
 });

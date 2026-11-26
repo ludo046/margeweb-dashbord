@@ -1,7 +1,7 @@
-
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+
 import { environment } from '../../../environments/environment';
 import { Interaction } from './interactions';
 
@@ -19,7 +19,7 @@ export interface MailResponse {
   message?: string;
   warning?: string;
   messageId?: string;
-  interaction?: Interaction;
+  interaction?: Interaction | null;
 }
 
 @Injectable({
@@ -29,6 +29,8 @@ export class MailService {
 
   private readonly http = inject(HttpClient);
   private readonly apiUrl = environment.apiUrl;
+
+  // Envoi depuis une fiche prospect
 
   sendToProspect(
     prospectId: number,
@@ -43,6 +45,23 @@ export class MailService {
     );
   }
 
+  // Envoi depuis une fiche client
+
+  sendToClient(
+    clientId: number,
+    data: MailInput
+  ): Promise<MailResponse> {
+
+    return firstValueFrom(
+      this.http.post<MailResponse>(
+        `${this.apiUrl}/clients/${clientId}/send-email`,
+        data
+      )
+    );
+  }
+
+  // Nouveau message libre
+
   sendNew(data: NewMailInput): Promise<MailResponse> {
 
     return firstValueFrom(
@@ -52,6 +71,8 @@ export class MailService {
       )
     );
   }
+
+  // Réponse à un message reçu
 
   reply(
     emailId: number,

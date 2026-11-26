@@ -1,4 +1,3 @@
-
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -83,28 +82,52 @@ const Email = sequelize.define('Email', {
       model: 'prospects',
       key: 'id'
     },
-    onDelete: 'SET NULL'
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
+  },
+
+  clientId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'clients',
+      key: 'id'
+    },
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
   }
 
 }, {
+
   tableName: 'emails',
+
   timestamps: true,
 
   indexes: [
+
     {
       unique: true,
       fields: ['folder', 'uidValidity', 'uid']
     },
+
     {
       fields: ['messageId']
     },
+
     {
       fields: ['prospectId']
     },
+
+    {
+      fields: ['clientId']
+    },
+
     {
       fields: ['receivedAt']
     }
+
   ]
+
 });
 
 module.exports = Email;

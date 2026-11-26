@@ -1,5 +1,10 @@
-
-const { Draft, Prospect, Email } = require('../models');
+const {
+  sequelize,
+  Draft,
+  Prospect,
+  Client,
+  Email
+} = require('../models');
 
 const allowedFields = [
   'mode',
@@ -7,7 +12,16 @@ const allowedFields = [
   'subject',
   'content',
   'prospectId',
+  'clientId',
   'originalEmailId'
+];
+
+const allowedModes = [
+  'new',
+  'prospect',
+  'client',
+  'reply',
+  'forward'
 ];
 
 const associations = [
@@ -17,6 +31,11 @@ const associations = [
     attributes: ['id', 'name', 'email']
   },
   {
+    model: Client,
+    as: 'client',
+    attributes: ['id', 'name', 'email', 'status']
+  },
+  {
     model: Email,
     as: 'originalEmail',
     attributes: {
@@ -24,6 +43,20 @@ const associations = [
     }
   }
 ];
+
+// ==========================================
+// VALIDATION
+// ==========================================
+
+function validationError(message) {
+
+  const error = new Error(message);
+
+  error.status = 400;
+
+  return error;
+
+}
 
 function sanitizeData(body = {}) {
 
@@ -46,37 +79,51 @@ function sanitizeData(body = {}) {
       typeof data[field] !== 'string'
     ) {
 
-      const error = new Error(
+      throw validationError(
         `Le champ ${field} doit être une chaîne de caractères.`
       );
-
-      error.status = 400;
-      throw error;
 
     }
 
   }
 
-  for (const field of ['prospectId', 'originalEmailId']) {
+  for (const field of [
+    'prospectId',
+    'clientId',
+    'originalEmailId'
+  ]) {
 
     if (data[field] === '') {
+
       data[field] = null;
+
     }
 
     if (
       data[field] !== undefined &&
       data[field] !== null &&
-      (!Number.isInteger(data[field]) || data[field] <= 0)
+      (
+        !Number.isSafeInteger(data[field]) ||
+        data[field] <= 0
+      )
     ) {
 
-      const error = new Error(
+      throw validationError(
         `Identifiant ${field} invalide.`
       );
 
-      error.status = 400;
-      throw error;
-
     }
+
+  }
+
+  if (
+    data.mode !== undefined &&
+    !allowedModes.includes(data.mode)
+  ) {
+
+    throw validationError(
+      'Mode de rédaction invalide.'
+    );
 
   }
 
@@ -84,52 +131,261 @@ function sanitizeData(body = {}) {
 
 }
 
-async function validateRelations(data) {
+// ==========================================
+// VALIDATION DES RELATIONS
+// ==========================================
+
+async function validateRelations(data, transaction) {
+
+  let prospect = null;
+  let client = null;
+  let originalEmail = null;
+
+  // Vérifier le prospect
 
   if (data.prospectId != null) {
 
-    const prospect = await Prospect.findByPk(
-      data.prospectId
+    prospect = await Prospect.findByPk(
+      data.prospectId,
+      { transaction }
     );
 
     if (!prospect) {
 
-      const error = new Error('Prospect introuvable.');
-      error.status = 400;
-      throw error;
+      throw validationError(
+        'Prospect introuvable.'
+      );
 
     }
 
   }
+
+  // Vérifier le client
+
+  if (data.clientId != null) {
+
+    client = await Client.findByPk(
+      data.clientId,
+      { transaction }
+    );
+
+    if (!client) {
+
+      throw validationError(
+        'Client introuvable.'
+      );
+
+    }
+
+  }
+
+  // Vérifier le message d'origine
 
   if (data.originalEmailId != null) {
 
-    const email = await Email.findByPk(
-      data.originalEmailId
+    originalEmail = await Email.findByPk(
+      data.originalEmailId,
+      { transaction }
     );
 
-    if (!email) {
+    if (!originalEmail) {
 
-      const error = new Error(
+      throw validationError(
         'Message d’origine introuvable.'
       );
-
-      error.status = 400;
-      throw error;
 
     }
 
   }
 
+  // Hériter des associations du message d'origine
+  // lors d'une réponse ou d'un transfert
+
+  if (
+    originalEmail &&
+    ['reply', 'forward'].includes(data.mode)
+  ) {
+
+    if (
+      data.prospectId != null &&
+      originalEmail.prospectId != null &&
+      data.prospectId !== originalEmail.prospectId
+    ) {
+
+      throw validationError(
+        'Le prospect ne correspond pas au message d’origine.'
+      );
+
+    }
+
+    if (
+      data.clientId != null &&
+      originalEmail.clientId != null &&
+      data.clientId !== originalEmail.clientId
+    ) {
+
+      throw validationError(
+        'Le client ne correspond pas au message d’origine.'
+      );
+
+    }
+
+    data.prospectId =
+      data.prospectId ??
+      originalEmail.prospectId ??
+      null;
+
+    data.clientId =
+      data.clientId ??
+      originalEmail.clientId ??
+      null;
+
+  }
+
+  // Rechercher un éventuel client issu du prospect
+
+  if (
+    data.prospectId != null &&
+    data.clientId == null
+  ) {
+
+    const linkedClient = await Client.findOne({
+
+      where: {
+        prospectId: data.prospectId
+      },
+
+      transaction
+
+    });
+
+    if (linkedClient) {
+
+      data.clientId = linkedClient.id;
+
+    }
+
+  }
+
+  // Compléter la relation avec le prospect d'origine
+
+  if (data.clientId != null) {
+
+    client = await Client.findByPk(
+      data.clientId,
+      { transaction }
+    );
+
+    if (!client) {
+
+      throw validationError(
+        'Client introuvable.'
+      );
+
+    }
+
+    if (
+      data.prospectId != null &&
+      data.prospectId !== client.prospectId
+    ) {
+
+      throw validationError(
+        'Ce prospect ne correspond pas au client sélectionné.'
+      );
+
+    }
+
+    data.prospectId =
+      client.prospectId ?? null;
+
+  }
+
+  // Un prospect converti devient un client
+
+  if (
+    data.mode === 'prospect' &&
+    data.clientId != null
+  ) {
+
+    data.mode = 'client';
+
+  }
+
+  // Vérifier la cohérence du mode
+
+  if (
+    data.mode === 'client' &&
+    data.clientId == null
+  ) {
+
+    throw validationError(
+      'Un client doit être sélectionné.'
+    );
+
+  }
+
+  if (
+    data.mode === 'prospect' &&
+    data.prospectId == null
+  ) {
+
+    throw validationError(
+      'Un prospect doit être sélectionné.'
+    );
+
+  }
+
+  if (
+    ['reply', 'forward'].includes(data.mode) &&
+    data.originalEmailId == null
+  ) {
+
+    throw validationError(
+      'Le message d’origine est obligatoire.'
+    );
+
+  }
+
+  return data;
+
 }
 
-// Liste des brouillons
+// ==========================================
+// LISTE DES BROUILLONS
+// ==========================================
 
 exports.findAll = async (req, res, next) => {
 
   try {
 
+    const where = {};
+
+    for (const field of ['clientId', 'prospectId']) {
+
+      if (req.query[field] !== undefined) {
+
+        const id = Number(req.query[field]);
+
+        if (
+          !Number.isSafeInteger(id) ||
+          id <= 0
+        ) {
+
+          throw validationError(
+            `Identifiant ${field} invalide.`
+          );
+
+        }
+
+        where[field] = id;
+
+      }
+
+    }
+
     const drafts = await Draft.findAll({
+
+      where,
 
       include: associations,
 
@@ -150,7 +406,9 @@ exports.findAll = async (req, res, next) => {
 
 };
 
-// Nombre de brouillons
+// ==========================================
+// NOMBRE DE BROUILLONS
+// ==========================================
 
 exports.count = async (req, res, next) => {
 
@@ -168,7 +426,9 @@ exports.count = async (req, res, next) => {
 
 };
 
-// Récupérer un brouillon
+// ==========================================
+// RÉCUPÉRER UN BROUILLON
+// ==========================================
 
 exports.findOne = async (req, res, next) => {
 
@@ -199,21 +459,49 @@ exports.findOne = async (req, res, next) => {
 
 };
 
-// Créer un brouillon
+// ==========================================
+// CRÉER UN BROUILLON
+// ==========================================
 
 exports.create = async (req, res, next) => {
 
   try {
 
-    const data = sanitizeData(req.body);
+    const draft = await sequelize.transaction(
+      async transaction => {
 
-    await validateRelations(data);
+        const data = {
 
-    const draft = await Draft.create(data);
+          mode: 'new',
+          prospectId: null,
+          clientId: null,
+          originalEmailId: null,
 
-    await draft.reload({
-      include: associations
-    });
+          ...sanitizeData(req.body)
+
+        };
+
+        await validateRelations(
+          data,
+          transaction
+        );
+
+        const createdDraft = await Draft.create(
+          data,
+          { transaction }
+        );
+
+        await createdDraft.reload({
+
+          include: associations,
+          transaction
+
+        });
+
+        return createdDraft;
+
+      }
+    );
 
     res.status(201).json(draft);
 
@@ -225,17 +513,69 @@ exports.create = async (req, res, next) => {
 
 };
 
-// Modifier un brouillon
+// ==========================================
+// MODIFIER UN BROUILLON
+// ==========================================
 
 exports.update = async (req, res, next) => {
 
   try {
 
-    const draft = await Draft.findByPk(
-      req.params.id
+    const result = await sequelize.transaction(
+      async transaction => {
+
+        const draft = await Draft.findByPk(
+
+          req.params.id,
+
+          { transaction }
+
+        );
+
+        if (!draft) {
+
+          return null;
+
+        }
+
+        const changes = sanitizeData(req.body);
+
+        // Fusionner les données existantes
+        // avec les nouvelles modifications
+
+        const data = {};
+
+        for (const field of allowedFields) {
+
+          data[field] = draft.get(field);
+
+        }
+
+        Object.assign(data, changes);
+
+        await validateRelations(
+          data,
+          transaction
+        );
+
+        await draft.update(
+          data,
+          { transaction }
+        );
+
+        await draft.reload({
+
+          include: associations,
+          transaction
+
+        });
+
+        return draft;
+
+      }
     );
 
-    if (!draft) {
+    if (!result) {
 
       return res.status(404).json({
         message: 'Brouillon introuvable.'
@@ -243,17 +583,7 @@ exports.update = async (req, res, next) => {
 
     }
 
-    const data = sanitizeData(req.body);
-
-    await validateRelations(data);
-
-    await draft.update(data);
-
-    await draft.reload({
-      include: associations
-    });
-
-    res.json(draft);
+    res.json(result);
 
   } catch (error) {
 
@@ -263,7 +593,9 @@ exports.update = async (req, res, next) => {
 
 };
 
-// Supprimer un brouillon
+// ==========================================
+// SUPPRIMER UN BROUILLON
+// ==========================================
 
 exports.remove = async (req, res, next) => {
 

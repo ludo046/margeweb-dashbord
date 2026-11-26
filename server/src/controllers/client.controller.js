@@ -4,8 +4,11 @@ const {
   Prospect,
   Interaction,
   Email,
-  Draft
+  Draft,
+  Subscription
 } = require('../models');
+
+const { Op } = require('sequelize');
 
 const allowedFields = [
   'name',
@@ -77,6 +80,64 @@ function isValidName(name) {
     typeof name === 'string' &&
     name.trim().length > 0
   );
+
+}
+
+// ==========================================
+// PROTECTION DES ABONNEMENTS
+// ==========================================
+
+// Compter les abonnements actifs
+
+async function countActiveSubscriptions(
+  clientId,
+  transaction
+) {
+
+  return Subscription.count({
+
+    where: {
+
+      clientId,
+
+      status: 'Actif'
+
+    },
+
+    transaction
+
+  });
+
+}
+
+// Compter les abonnements non résiliés
+
+async function countOpenSubscriptions(
+  clientId,
+  transaction
+) {
+
+  return Subscription.count({
+
+    where: {
+
+      clientId,
+
+      status: {
+
+        [Op.in]: [
+          'À venir',
+          'Actif',
+          'Suspendu'
+        ]
+
+      }
+
+    },
+
+    transaction
+
+  });
 
 }
 
@@ -315,6 +376,32 @@ exports.update = async (req, res, next) => {
 
         }
 
+        // Empêcher la désactivation d'un client
+        // possédant des abonnements actifs
+
+        if (data.status === 'Inactif') {
+
+          const activeSubscriptions =
+            await countActiveSubscriptions(
+              client.id,
+              transaction
+            );
+
+          if (activeSubscriptions > 0) {
+
+            return {
+
+              status: 409,
+
+              message:
+                `Ce client possède ${activeSubscriptions} abonnement(s) actif(s). Suspendez ou résiliez ses abonnements avant de le désactiver.`
+
+            };
+
+          }
+
+        }
+
         // Enregistrer les modifications
 
         await client.update(
@@ -378,6 +465,28 @@ exports.archive = async (req, res, next) => {
           return {
             status: 409,
             message: 'Ce client est déjà archivé.'
+          };
+
+        }
+
+        // Empêcher l'archivage d'un client
+        // possédant des abonnements non résiliés
+
+        const openSubscriptions =
+          await countOpenSubscriptions(
+            client.id,
+            transaction
+          );
+
+        if (openSubscriptions > 0) {
+
+          return {
+
+            status: 409,
+
+            message:
+              `Ce client possède ${openSubscriptions} abonnement(s) non résilié(s). Résiliez ses abonnements avant de l’archiver.`
+
           };
 
         }

@@ -1,0 +1,1264 @@
+<div class="subscriptions-page">
+
+  <!-- En-tête -->
+
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">GESTION COMMERCIALE</span>
+
+      <h1>Abonnements</h1>
+
+      <p>
+        Gérez vos contrats, vos échéances et vos revenus récurrents.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <button
+        type="button"
+        class="secondary-btn"
+        (click)="refresh()"
+        [disabled]="loading() || statsLoading() || busy()"
+      >
+        ↻ Actualiser
+      </button>
+
+      <button
+        type="button"
+        class="primary-btn"
+        (click)="openCreate()"
+        [disabled]="!canCreate()"
+      >
+        <span class="button-icon">+</span>
+        Nouvel abonnement
+      </button>
+    </div>
+  </header>
+
+  <!-- Messages -->
+
+  @if (successMessage()) {
+    <div class="success-message" role="status">
+      <span>{{ successMessage() }}</span>
+
+      <button
+        type="button"
+        class="message-close"
+        aria-label="Fermer le message"
+        (click)="successMessage.set('')"
+      >
+        ×
+      </button>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="error-message" role="alert">
+      {{ error() }}
+    </div>
+  }
+
+  @if (statsError()) {
+    <div class="error-message" role="alert">
+      {{ statsError() }}
+    </div>
+  }
+
+  @if (clientsError()) {
+    <div class="error-message" role="alert">
+      {{ clientsError() }}
+    </div>
+  }
+
+  <!-- Indicateurs financiers -->
+
+  <section class="financial-stats">
+
+    <article class="stat-card revenue-card">
+      <div class="stat-top">
+        <span class="stat-label">
+          Revenu mensuel récurrent
+        </span>
+
+        <span class="stat-icon revenue-icon">€</span>
+      </div>
+
+      <div class="stat-value">
+        @if (statsLoading()) {
+          <span class="stat-placeholder">…</span>
+        } @else if (stats(); as data) {
+          {{ data.mrr | currency:'EUR':'symbol':'1.2-2':'fr' }}
+        } @else {
+          —
+        }
+      </div>
+
+      <span class="stat-description">
+        MRR · Équivalent mensuel
+      </span>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-top">
+        <span class="stat-label">
+          Revenu annuel récurrent
+        </span>
+
+        <span class="stat-icon annual-icon">↗</span>
+      </div>
+
+      <div class="stat-value">
+        @if (statsLoading()) {
+          <span class="stat-placeholder">…</span>
+        } @else if (stats(); as data) {
+          {{ data.arr | currency:'EUR':'symbol':'1.2-2':'fr' }}
+        } @else {
+          —
+        }
+      </div>
+
+      <span class="stat-description">
+        ARR · Projection annuelle
+      </span>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-top">
+        <span class="stat-label">
+          Abonnements actifs
+        </span>
+
+        <span class="stat-icon active-icon">↻</span>
+      </div>
+
+      <div class="stat-value">
+        @if (statsLoading()) {
+          <span class="stat-placeholder">…</span>
+        } @else if (stats(); as data) {
+          {{ data.recurringSubscriptions }}
+        } @else {
+          —
+        }
+      </div>
+
+      <span class="stat-description">
+        Générant des revenus récurrents
+      </span>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-top">
+        <span class="stat-label">
+          Prochaines échéances
+        </span>
+
+        <span class="stat-icon billing-icon">▦</span>
+      </div>
+
+      <div class="stat-value">
+        @if (statsLoading()) {
+          <span class="stat-placeholder">…</span>
+        } @else if (stats(); as data) {
+          {{ data.upcomingBilling }}
+        } @else {
+          —
+        }
+      </div>
+
+      <span class="stat-description">
+        Dans les 30 prochains jours
+      </span>
+    </article>
+
+  </section>
+
+  <!-- Alertes -->
+
+  @if (!statsLoading()) {
+    @if (stats(); as data) {
+
+      @if (data.overdueBilling > 0) {
+        <div class="warning-message">
+          <span class="warning-icon">!</span>
+
+          <div>
+            <strong>
+              {{ data.overdueBilling }}
+              échéance(s) dépassée(s)
+            </strong>
+
+            <p>
+              Certains abonnements nécessitent une vérification
+              de leur prochaine échéance.
+            </p>
+          </div>
+        </div>
+      }
+
+      @if (data.expired > 0) {
+        <div class="warning-message">
+          <span class="warning-icon">!</span>
+
+          <div>
+            <strong>
+              {{ data.expired }}
+              abonnement(s) arrivé(s) à expiration
+            </strong>
+
+            <p>
+              Vérifiez les dates de fin et les contrats concernés.
+            </p>
+          </div>
+        </div>
+      }
+
+    }
+  }
+
+  <!-- Répartition par statut -->
+
+  <section class="status-overview">
+
+    <button
+      type="button"
+      class="status-card"
+      [class.selected]="statusFilter() === 'Tous'"
+      (click)="filterByStatus('Tous')"
+    >
+      <span class="status-dot all-dot"></span>
+
+      <span class="status-card-label">
+        Tous
+      </span>
+
+      <strong>
+        {{ subscriptions().length }}
+      </strong>
+    </button>
+
+    <button
+      type="button"
+      class="status-card"
+      [class.selected]="statusFilter() === 'Actif'"
+      (click)="filterByStatus('Actif')"
+    >
+      <span class="status-dot active-dot"></span>
+
+      <span class="status-card-label">
+        Actifs
+      </span>
+
+      <strong>
+        {{ subscriptionsService.activeSubscriptions().length }}
+      </strong>
+    </button>
+
+    <button
+      type="button"
+      class="status-card"
+      [class.selected]="statusFilter() === 'À venir'"
+      (click)="filterByStatus('À venir')"
+    >
+      <span class="status-dot upcoming-dot"></span>
+
+      <span class="status-card-label">
+        À venir
+      </span>
+
+      <strong>
+        {{ subscriptionsService.upcomingSubscriptions().length }}
+      </strong>
+    </button>
+
+    <button
+      type="button"
+      class="status-card"
+      [class.selected]="statusFilter() === 'Suspendu'"
+      (click)="filterByStatus('Suspendu')"
+    >
+      <span class="status-dot suspended-dot"></span>
+
+      <span class="status-card-label">
+        Suspendus
+      </span>
+
+      <strong>
+        {{ subscriptionsService.suspendedSubscriptions().length }}
+      </strong>
+    </button>
+
+    <button
+      type="button"
+      class="status-card"
+      [class.selected]="statusFilter() === 'Résilié'"
+      (click)="filterByStatus('Résilié')"
+    >
+      <span class="status-dot cancelled-dot"></span>
+
+      <span class="status-card-label">
+        Résiliés
+      </span>
+
+      <strong>
+        {{ subscriptionsService.cancelledSubscriptions().length }}
+      </strong>
+    </button>
+
+  </section>
+
+  <!-- Liste des abonnements -->
+
+  <section class="subscriptions-panel">
+
+    <div class="panel-header">
+      <div>
+        <h2>Liste des abonnements</h2>
+
+        <p>
+          {{ filteredSubscriptions().length }}
+          abonnement(s) affiché(s)
+        </p>
+      </div>
+
+      @if (hasFilters()) {
+        <button
+          type="button"
+          class="text-btn"
+          (click)="resetFilters()"
+        >
+          Réinitialiser les filtres
+        </button>
+      }
+    </div>
+
+    <!-- Filtres -->
+
+    <div class="filters">
+
+      <div class="search-field">
+        <span class="search-icon">⌕</span>
+
+        <input
+          type="search"
+          placeholder="Rechercher un abonnement..."
+          aria-label="Rechercher un abonnement"
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)"
+        />
+      </div>
+
+      <select
+        aria-label="Filtrer par client"
+        [ngModel]="clientFilter()"
+        (ngModelChange)="clientFilter.set($event)"
+      >
+        <option [ngValue]="null">
+          Tous les clients
+        </option>
+
+        @for (client of filterClients(); track client.id) {
+          <option [ngValue]="client.id">
+            {{ client.name }}
+
+            @if (client.status === 'Archivé') {
+              (Archivé)
+            }
+          </option>
+        }
+      </select>
+
+      <select
+        aria-label="Filtrer par statut"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($event)"
+      >
+        <option value="Tous">
+          Tous les statuts
+        </option>
+
+        @for (status of statuses; track status) {
+          <option [value]="status">
+            {{ status }}
+          </option>
+        }
+      </select>
+
+      <select
+        aria-label="Filtrer par périodicité"
+        [ngModel]="billingFilter()"
+        (ngModelChange)="billingFilter.set($event)"
+      >
+        <option value="Tous">
+          Toutes les périodicités
+        </option>
+
+        @for (cycle of billingCycles; track cycle) {
+          <option [value]="cycle">
+            {{ cycle }}
+          </option>
+        }
+      </select>
+
+    </div>
+
+    <!-- Chargement -->
+
+    @if (loading()) {
+      <div class="empty-state">
+        <div class="loading-spinner"></div>
+
+        <h3>Chargement des abonnements</h3>
+
+        <p>Veuillez patienter...</p>
+      </div>
+
+    } @else if (error()) {
+
+      <div class="empty-state">
+        <div class="empty-icon">!</div>
+
+        <h3>Impossible de charger les abonnements</h3>
+
+        <p>{{ error() }}</p>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          (click)="refresh()"
+        >
+          Réessayer
+        </button>
+      </div>
+
+    } @else if (filteredSubscriptions().length === 0) {
+
+      <div class="empty-state">
+        <div class="empty-icon">↻</div>
+
+        @if (hasFilters()) {
+          <h3>Aucun résultat</h3>
+
+          <p>
+            Aucun abonnement ne correspond à vos filtres.
+          </p>
+
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="resetFilters()"
+          >
+            Réinitialiser les filtres
+          </button>
+
+        } @else {
+
+          <h3>Aucun abonnement pour le moment</h3>
+
+          <p>
+            Créez votre premier abonnement pour commencer
+            à suivre vos revenus récurrents.
+          </p>
+
+          @if (canCreate()) {
+            <button
+              type="button"
+              class="primary-btn"
+              (click)="openCreate()"
+            >
+              + Créer un abonnement
+            </button>
+          } @else if (
+            !clientsLoading() &&
+            !clientsError() &&
+            availableClients().length === 0
+          ) {
+            <a
+              class="primary-btn"
+              routerLink="/clients/new"
+            >
+              + Créer un client
+            </a>
+          }
+
+        }
+      </div>
+
+    } @else {
+
+      <!-- Tableau -->
+
+      <div class="table-wrapper">
+
+        <table class="subscriptions-table">
+
+          <thead>
+            <tr>
+              <th>Abonnement</th>
+              <th>Client</th>
+              <th>Tarif</th>
+              <th>Équiv. mensuel</th>
+              <th>Prochaine échéance</th>
+              <th>Statut</th>
+              <th class="actions-heading">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            @for (
+              subscription of filteredSubscriptions();
+              track subscription.id
+            ) {
+
+              <tr
+                [class.cancelled-row]="subscription.status === 'Résilié'"
+              >
+
+                <!-- Abonnement -->
+
+                <td>
+                  <div class="subscription-name">
+                    {{ subscription.name }}
+                  </div>
+
+                  @if (subscription.description) {
+                    <div
+                      class="subscription-description"
+                      [title]="subscription.description"
+                    >
+                      {{ subscription.description }}
+                    </div>
+                  }
+
+                  <div class="cell-meta">
+                    Depuis le
+                    {{ subscription.startDate | date:'dd/MM/yyyy' }}
+                  </div>
+                </td>
+
+                <!-- Client -->
+
+                <td>
+                  <a
+                    class="client-link"
+                    [routerLink]="['/clients', subscription.clientId]"
+                  >
+                    <span class="client-avatar">
+                      {{
+                        getClientInitials(
+                          subscription.client?.name ?? '?'
+                        )
+                      }}
+                    </span>
+
+                    <span class="client-information">
+                      <strong>
+                        {{
+                          subscription.client?.name
+                          ?? ('Client #' + subscription.clientId)
+                        }}
+                      </strong>
+
+                      @if (subscription.client?.status === 'Archivé') {
+                        <small>Client archivé</small>
+                      }
+                    </span>
+                  </a>
+                </td>
+
+                <!-- Tarif -->
+
+                <td>
+                  <div class="price">
+                    {{
+                      subscription.amount
+                      | currency:'EUR':'symbol':'1.2-2':'fr'
+                    }}
+                  </div>
+
+                  <div class="cell-meta">
+                    {{ getBillingLabel(subscription.billingCycle) }}
+                  </div>
+                </td>
+
+                <!-- Équivalent mensuel -->
+
+                <td>
+                  <div class="monthly-price">
+                    {{
+                      getMonthlyAmount(subscription)
+                      | currency:'EUR':'symbol':'1.2-2':'fr'
+                    }}
+                  </div>
+
+                  <div class="cell-meta">
+                    / mois
+                  </div>
+                </td>
+
+                <!-- Échéance -->
+
+                <td>
+                  @if (subscription.nextBillingDate) {
+
+                    <div
+                      class="billing-date"
+                      [class.overdue]="isOverdue(subscription)"
+                    >
+                      {{
+                        subscription.nextBillingDate
+                        | date:'dd/MM/yyyy'
+                      }}
+                    </div>
+
+                    @if (isOverdue(subscription)) {
+                      <span class="overdue-label">
+                        Échéance dépassée
+                      </span>
+                    }
+
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+
+                <!-- Statut -->
+
+                <td>
+                  <span
+                    class="status-badge"
+                    [class]="getStatusClass(subscription.status)"
+                  >
+                    <span class="badge-dot"></span>
+
+                    {{ subscription.status }}
+                  </span>
+
+                  @if (isExpired(subscription)) {
+                    <div class="expired-label">
+                      Expiré
+                    </div>
+                  }
+                </td>
+
+                <!-- Actions -->
+
+                <td>
+                  <div class="row-actions">
+
+                    @if (canEdit(subscription)) {
+                      <button
+                        type="button"
+                        class="action-btn edit-btn"
+                        (click)="openEdit(subscription)"
+                      >
+                        Modifier
+                      </button>
+                    }
+
+                    @if (canActivate(subscription)) {
+                      <button
+                        type="button"
+                        class="action-btn activate-btn"
+                        (click)="requestAction(subscription, 'activate')"
+                      >
+                        Activer
+                      </button>
+                    }
+
+                    @if (canSuspend(subscription)) {
+                      <button
+                        type="button"
+                        class="action-btn suspend-btn"
+                        (click)="requestAction(subscription, 'suspend')"
+                      >
+                        Suspendre
+                      </button>
+                    }
+
+                    @if (canResume(subscription)) {
+                      <button
+                        type="button"
+                        class="action-btn activate-btn"
+                        (click)="requestAction(subscription, 'resume')"
+                      >
+                        Reprendre
+                      </button>
+                    }
+
+                    @if (canCancel(subscription)) {
+                      <button
+                        type="button"
+                        class="action-btn cancel-btn"
+                        (click)="requestAction(subscription, 'cancel')"
+                      >
+                        Résilier
+                      </button>
+                    }
+
+                    @if (subscription.status === 'Résilié') {
+                      <span class="readonly-label">
+                        Lecture seule
+                      </span>
+                    }
+
+                  </div>
+                </td>
+
+              </tr>
+
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    }
+
+  </section>
+
+  <!-- Informations complémentaires -->
+
+  @if (!statsLoading()) {
+    @if (stats(); as data) {
+
+      <section class="secondary-stats">
+
+        <article class="summary-card">
+          <h3>Revenu moyen par abonnement</h3>
+
+          <div class="summary-value">
+            {{
+              data.averageMonthlyRevenue
+              | currency:'EUR':'symbol':'1.2-2':'fr'
+            }}
+          </div>
+
+          <p>Équivalent mensuel moyen des abonnements récurrents.</p>
+        </article>
+
+        <article class="summary-card">
+          <h3>Répartition des abonnements récurrents</h3>
+
+          <div class="billing-distribution">
+
+            @for (cycle of billingCycles; track cycle) {
+
+              <div class="distribution-item">
+                <span>{{ cycle }}</span>
+
+                <div class="distribution-track">
+                  <div
+                    class="distribution-fill"
+                    [style.width.%]="
+                      data.recurringSubscriptions > 0
+                        ? data.byBillingCycle[cycle]
+                          / data.recurringSubscriptions * 100
+                        : 0
+                    "
+                  ></div>
+                </div>
+
+                <strong>
+                  {{ data.byBillingCycle[cycle] }}
+                </strong>
+              </div>
+
+            }
+
+          </div>
+        </article>
+
+      </section>
+
+    }
+  }
+
+  <!-- Modal création / modification -->
+
+  @if (formOpen()) {
+
+    <div class="modal-overlay">
+
+      <section
+        class="modal subscription-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="subscription-modal-title"
+      >
+
+        <div class="modal-header">
+
+          <div>
+            <span class="eyebrow">
+              GESTION DES ABONNEMENTS
+            </span>
+
+            <h2 id="subscription-modal-title">
+              {{
+                editingSubscription()
+                  ? 'Modifier l’abonnement'
+                  : 'Nouvel abonnement'
+              }}
+            </h2>
+
+            <p>
+              Renseignez les informations de la prestation récurrente.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Fermer"
+            (click)="closeForm()"
+            [disabled]="saving()"
+          >
+            ×
+          </button>
+
+        </div>
+
+        <form
+          class="subscription-form"
+          (ngSubmit)="save()"
+        >
+
+          <div class="modal-body">
+
+            @if (formError()) {
+              <div class="error-message" role="alert">
+                {{ formError() }}
+              </div>
+            }
+
+            <!-- Client et prestation -->
+
+            <div class="form-section">
+
+              <h3>Informations générales</h3>
+
+              <div class="field">
+
+                <label for="subscription-client">
+                  Client *
+                </label>
+
+                <select
+                  id="subscription-client"
+                  name="clientId"
+                  [(ngModel)]="form.clientId"
+                  [disabled]="!!editingSubscription() || saving()"
+                  required
+                >
+                  <option [ngValue]="null">
+                    Sélectionner un client
+                  </option>
+
+                  @for (
+                    client of availableClients();
+                    track client.id
+                  ) {
+                    <option [ngValue]="client.id">
+                      {{ client.name }}
+
+                      @if (client.status === 'Inactif') {
+                        (Inactif)
+                      }
+                    </option>
+                  }
+                </select>
+
+                @if (editingSubscription()) {
+                  <small>
+                    Le client associé ne peut pas être modifié.
+                  </small>
+                }
+
+              </div>
+
+              <div class="field">
+
+                <label for="subscription-name">
+                  Nom de l’abonnement *
+                </label>
+
+                <input
+                  id="subscription-name"
+                  name="name"
+                  type="text"
+                  placeholder="Ex. Maintenance du site internet"
+                  maxlength="255"
+                  [(ngModel)]="form.name"
+                  [disabled]="saving()"
+                  required
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="subscription-description">
+                  Description de la prestation
+                </label>
+
+                <textarea
+                  id="subscription-description"
+                  name="description"
+                  rows="3"
+                  placeholder="Décrivez les services inclus..."
+                  [(ngModel)]="form.description"
+                  [disabled]="saving()"
+                ></textarea>
+
+              </div>
+
+            </div>
+
+            <!-- Tarification -->
+
+            <div class="form-section">
+
+              <h3>Tarification</h3>
+
+              <div class="field-row">
+
+                <div class="field">
+
+                  <label for="subscription-amount">
+                    Montant (€) *
+                  </label>
+
+                  <input
+                    id="subscription-amount"
+                    name="amount"
+                    type="number"
+                    min="0"
+                    max="99999999.99"
+                    step="0.01"
+                    placeholder="39,00"
+                    [(ngModel)]="form.amount"
+                    [disabled]="saving()"
+                    required
+                  />
+
+                </div>
+
+                <div class="field">
+
+                  <label for="subscription-cycle">
+                    Périodicité *
+                  </label>
+
+                  <select
+                    id="subscription-cycle"
+                    name="billingCycle"
+                    [(ngModel)]="form.billingCycle"
+                    [disabled]="saving()"
+                    required
+                  >
+                    @for (cycle of billingCycles; track cycle) {
+                      <option [value]="cycle">
+                        {{ cycle }}
+                      </option>
+                    }
+                  </select>
+
+                </div>
+
+              </div>
+
+              <div class="revenue-preview">
+
+                <div>
+                  <span>Équivalent mensuel</span>
+
+                  <strong>
+                    {{
+                      getFormMonthlyAmount()
+                      | currency:'EUR':'symbol':'1.2-2':'fr'
+                    }}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Équivalent annuel</span>
+
+                  <strong>
+                    {{
+                      getFormAnnualAmount()
+                      | currency:'EUR':'symbol':'1.2-2':'fr'
+                    }}
+                  </strong>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- Dates et échéances -->
+
+            <div class="form-section">
+
+              <h3>Durée et échéances</h3>
+
+              <div class="field-row">
+
+                <div class="field">
+
+                  <label for="subscription-start">
+                    Date de début *
+                  </label>
+
+                  <input
+                    id="subscription-start"
+                    name="startDate"
+                    type="date"
+                    [ngModel]="form.startDate"
+                    (ngModelChange)="onStartDateChange($event)"
+                    [disabled]="!canChangeStartDate() || saving()"
+                    required
+                  />
+
+                </div>
+
+                <div class="field">
+
+                  <label for="subscription-end">
+                    Date de fin
+                  </label>
+
+                  <input
+                    id="subscription-end"
+                    name="endDate"
+                    type="date"
+                    [min]="form.startDate"
+                    [(ngModel)]="form.endDate"
+                    [disabled]="saving()"
+                  />
+
+                  <small>
+                    Laisser vide pour une durée indéterminée.
+                  </small>
+
+                </div>
+
+              </div>
+
+              <div class="field">
+
+                <label for="subscription-next-billing">
+                  Prochaine échéance
+                </label>
+
+                <input
+                  id="subscription-next-billing"
+                  name="nextBillingDate"
+                  type="date"
+                  [min]="form.startDate"
+                  [max]="form.endDate || '9999-12-31'"
+                  [(ngModel)]="form.nextBillingDate"
+                  [disabled]="saving()"
+                />
+
+                <small>
+                  À la création, une date vide reprend la date de début.
+                </small>
+
+              </div>
+
+              <label class="checkbox-field">
+
+                <input
+                  type="checkbox"
+                  name="autoRenew"
+                  [(ngModel)]="form.autoRenew"
+                  [disabled]="saving()"
+                />
+
+                <span>
+                  <strong>Renouvellement automatique</strong>
+
+                  <small>
+                    Indication contractuelle. Aucune facture
+                    ni aucun prélèvement ne sera généré automatiquement.
+                  </small>
+                </span>
+
+              </label>
+
+            </div>
+
+            <!-- Notes -->
+
+            <div class="form-section">
+
+              <h3>Notes internes</h3>
+
+              <div class="field">
+
+                <textarea
+                  name="notes"
+                  rows="4"
+                  aria-label="Notes internes"
+                  placeholder="Conditions particulières, informations complémentaires..."
+                  [(ngModel)]="form.notes"
+                  [disabled]="saving()"
+                ></textarea>
+
+              </div>
+
+            </div>
+
+            @if (!editingSubscription()) {
+              <div class="info-message">
+                Le nouvel abonnement sera créé avec le statut
+                « À venir ». Vous pourrez ensuite l’activer
+                lorsque la prestation débutera.
+              </div>
+            }
+
+          </div>
+
+          <!-- Pied de la fenêtre -->
+
+          <div class="modal-footer">
+
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="closeForm()"
+              [disabled]="saving()"
+            >
+              Annuler
+            </button>
+
+            <button
+              type="submit"
+              class="primary-btn"
+              [disabled]="saving()"
+            >
+              @if (saving()) {
+                Enregistrement...
+              } @else if (editingSubscription()) {
+                Enregistrer les modifications
+              } @else {
+                Créer l’abonnement
+              }
+            </button>
+
+          </div>
+
+        </form>
+
+      </section>
+
+    </div>
+
+  }
+
+  <!-- Modal de confirmation -->
+
+  @if (confirmation(); as currentConfirmation) {
+
+    <div class="modal-overlay">
+
+      <section
+        class="modal confirmation-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmation-title"
+      >
+
+        <div
+          class="confirmation-icon"
+          [class.danger-icon]="currentConfirmation.dangerous"
+        >
+          @if (currentConfirmation.dangerous) {
+            !
+          } @else {
+            ↻
+          }
+        </div>
+
+        <h2 id="confirmation-title">
+          {{ currentConfirmation.title }}
+        </h2>
+
+        <p class="confirmation-message">
+          {{ currentConfirmation.message }}
+        </p>
+
+        <div class="confirmation-summary">
+
+          <strong>
+            {{ currentConfirmation.subscription.name }}
+          </strong>
+
+          <span>
+            {{
+              currentConfirmation.subscription.client?.name
+              ?? 'Client'
+            }}
+          </span>
+
+          <div class="confirmation-price">
+            {{
+              currentConfirmation.subscription.amount
+              | currency:'EUR':'symbol':'1.2-2':'fr'
+            }}
+
+            {{
+              getBillingLabel(
+                currentConfirmation.subscription.billingCycle
+              )
+            }}
+          </div>
+
+        </div>
+
+        @if (actionError()) {
+          <div class="error-message" role="alert">
+            {{ actionError() }}
+          </div>
+        }
+
+        <div class="confirmation-actions">
+
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="closeConfirmation()"
+            [disabled]="processingAction()"
+          >
+            Annuler
+          </button>
+
+          <button
+            type="button"
+            [class]="
+              currentConfirmation.dangerous
+                ? 'danger-btn'
+                : 'primary-btn'
+            "
+            (click)="confirmAction()"
+            [disabled]="processingAction()"
+          >
+            @if (processingAction()) {
+              Traitement...
+            } @else {
+              {{ currentConfirmation.buttonLabel }}
+            }
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  }
+
+</div>

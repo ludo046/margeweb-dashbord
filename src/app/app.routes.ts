@@ -1,4 +1,3 @@
-
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
@@ -28,28 +27,28 @@ export const routes: Routes = [
         .then(m => m.ProspectDetail)
   },
   {
-  path: 'pipeline',
-  loadComponent: () =>
-    import('./features/pipeline/pipeline')
-      .then(m => m.Pipeline)
+    path: 'pipeline',
+    loadComponent: () =>
+      import('./features/pipeline/pipeline')
+        .then(m => m.Pipeline)
   },
   {
-  path: 'follow-ups',
-  loadComponent: () =>
-    import('./features/follow-ups/follow-ups')
-      .then(m => m.FollowUps)
+    path: 'follow-ups',
+    loadComponent: () =>
+      import('./features/follow-ups/follow-ups')
+        .then(m => m.FollowUps)
   },
   {
-  path: 'messaging',
-  loadComponent: () =>
-    import('./features/messaging/messaging')
-      .then(m => m.Messaging)
+    path: 'messaging',
+    loadComponent: () =>
+      import('./features/messaging/messaging')
+        .then(m => m.Messaging)
   },
   {
-  path: 'clients',
-  loadComponent: () =>
-    import('./features/clients/clients')
-      .then(m => m.Clients)
+    path: 'clients',
+    loadComponent: () =>
+      import('./features/clients/clients')
+        .then(m => m.Clients)
   },
   {
     path: 'clients/new',
@@ -62,6 +61,12 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/client-detail/client-detail')
         .then(m => m.ClientDetail)
+  },
+  {
+    path: 'subscriptions',
+    loadComponent: () =>
+      import('./pages/subscriptions/subscriptions')
+        .then(m => m.Subscriptions)
   },
   {
     path: '**',

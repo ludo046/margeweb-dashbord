@@ -5,6 +5,7 @@ const Interaction = require('./interaction.model');
 const Email = require('./email.model');
 const Draft = require('./draft.model');
 const Client = require('./client.model');
+const Subscription = require('./subscription.model');
 
 // ==========================================
 // PROSPECTS / INTERACTIONS
@@ -131,6 +132,30 @@ Draft.belongsTo(Client, {
 });
 
 // ==========================================
+// CLIENTS / ABONNEMENTS
+// ==========================================
+
+Client.hasMany(Subscription, {
+  foreignKey: {
+    name: 'clientId',
+    allowNull: false
+  },
+  as: 'subscriptions',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
+Subscription.belongsTo(Client, {
+  foreignKey: {
+    name: 'clientId',
+    allowNull: false
+  },
+  as: 'client',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
+// ==========================================
 // EXPORTS
 // ==========================================
 
@@ -140,5 +165,6 @@ module.exports = {
   Interaction,
   Email,
   Draft,
-  Client
+  Client,
+  Subscription
 };

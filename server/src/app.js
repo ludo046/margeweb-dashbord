@@ -10,6 +10,7 @@ const interactionRoutes = require('./routes/interaction.routes');
 const emailRoutes = require('./routes/email.routes');
 const draftRoutes = require('./routes/draft.routes');
 const clientRoutes = require('./routes/client.routes');
+const subscriptionRoutes = require('./routes/subscription.routes');
 
 const errorMiddleware = require('./middlewares/error.middleware');
 
@@ -43,13 +44,18 @@ app.use(
   interactionRoutes
 );
 
-app.use('/api/clients/:clientId/interactions', interactionRoutes);
+app.use(
+  '/api/clients/:clientId/interactions',
+  interactionRoutes
+);
 
 app.use('/api/emails', emailRoutes);
 
 app.use('/api/drafts', draftRoutes);
 
 app.use('/api/clients', clientRoutes);
+
+app.use('/api/subscriptions', subscriptionRoutes);
 
 // Route introuvable
 

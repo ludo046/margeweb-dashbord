@@ -5,10 +5,14 @@ const {
   Interaction,
   Email,
   Draft,
-  Subscription
+  Subscription,
+  Quote
 } = require('../models');
 
-const { Op } = require('sequelize');
+const {
+  Op,
+  Transaction
+} = require('sequelize');
 
 const allowedFields = [
   'name',
@@ -32,7 +36,9 @@ const editableStatuses = [
   'Inactif'
 ];
 
-// Nettoyage des données
+// ==========================================
+// VALIDATION DES DONNÉES
+// ==========================================
 
 function sanitizeData(body = {}) {
 
@@ -60,8 +66,6 @@ function sanitizeData(body = {}) {
 
 }
 
-// Vérification du corps de la requête
-
 function isValidBody(body) {
 
   return (
@@ -71,8 +75,6 @@ function isValidBody(body) {
   );
 
 }
-
-// Vérification du nom
 
 function isValidName(name) {
 
@@ -86,8 +88,6 @@ function isValidName(name) {
 // ==========================================
 // PROTECTION DES ABONNEMENTS
 // ==========================================
-
-// Compter les abonnements actifs
 
 async function countActiveSubscriptions(
   clientId,
@@ -109,8 +109,6 @@ async function countActiveSubscriptions(
   });
 
 }
-
-// Compter les abonnements non résiliés
 
 async function countOpenSubscriptions(
   clientId,
@@ -141,7 +139,36 @@ async function countOpenSubscriptions(
 
 }
 
-// Récupérer tous les clients
+// ==========================================
+// PROTECTION DES DEVIS
+// ==========================================
+
+async function countConflictingQuotes(
+  prospectId,
+  transaction
+) {
+
+  return Quote.count({
+
+    where: {
+
+      prospectId,
+
+      clientId: {
+        [Op.ne]: null
+      }
+
+    },
+
+    transaction
+
+  });
+
+}
+
+// ==========================================
+// LISTE DES CLIENTS
+// ==========================================
 
 exports.findAll = async (req, res, next) => {
 
@@ -161,7 +188,9 @@ exports.findAll = async (req, res, next) => {
 
 };
 
-// Récupérer un client
+// ==========================================
+// CONSULTATION D'UN CLIENT
+// ==========================================
 
 exports.findOne = async (req, res, next) => {
 
@@ -197,7 +226,9 @@ exports.findOne = async (req, res, next) => {
 
 };
 
-// Créer un client manuellement
+// ==========================================
+// CRÉATION MANUELLE D'UN CLIENT
+// ==========================================
 
 exports.create = async (req, res, next) => {
 
@@ -248,7 +279,9 @@ exports.create = async (req, res, next) => {
 
 };
 
-// Modifier ou réactiver un client
+// ==========================================
+// MODIFICATION OU RÉACTIVATION
+// ==========================================
 
 exports.update = async (req, res, next) => {
 
@@ -435,7 +468,9 @@ exports.update = async (req, res, next) => {
 
 };
 
-// Archiver un client
+// ==========================================
+// ARCHIVAGE D'UN CLIENT
+// ==========================================
 
 exports.archive = async (req, res, next) => {
 
@@ -526,199 +561,251 @@ exports.archive = async (req, res, next) => {
 
 };
 
-// Convertir un prospect en client
+// ==========================================
+// CONVERSION D'UN PROSPECT EN CLIENT
+// ==========================================
 
 exports.convertProspect = async (req, res, next) => {
 
   try {
 
-    const result = await sequelize.transaction(
-      async (transaction) => {
+    const result = await sequelize.transaction({
 
-        // 1. Récupérer le prospect
+      type: Transaction.TYPES.IMMEDIATE
 
-        const prospect = await Prospect.findByPk(
-          req.params.prospectId,
-          { transaction }
+    }, async (transaction) => {
+
+      // 1. Récupérer le prospect
+
+      const prospect = await Prospect.findByPk(
+        req.params.prospectId,
+        { transaction }
+      );
+
+      if (!prospect) {
+
+        return {
+          status: 404,
+          message: 'Prospect introuvable.'
+        };
+
+      }
+
+      // 2. Vérifier qu'il n'est pas déjà client
+
+      const existingClient = await Client.findOne({
+
+        where: {
+          prospectId: prospect.id
+        },
+
+        transaction
+
+      });
+
+      if (existingClient) {
+
+        return {
+          status: 409,
+          message: 'Ce prospect est déjà un client.',
+          client: existingClient
+        };
+
+      }
+
+      // 3. Vérifier les conflits de rattachement
+      // avant toute création de client
+
+      const conflictingQuotes =
+        await countConflictingQuotes(
+          prospect.id,
+          transaction
         );
 
-        if (!prospect) {
+      if (conflictingQuotes > 0) {
 
-          return {
-            status: 404,
-            message: 'Prospect introuvable.'
-          };
+        return {
 
-        }
+          status: 409,
 
-        // 2. Vérifier qu'il n'est pas déjà client
+          message:
+            `Impossible de convertir ce prospect : ${conflictingQuotes} devis sont déjà associés à un autre client.`
 
-        const existingClient = await Client.findOne({
+        };
 
-          where: {
-            prospectId: prospect.id
-          },
+      }
 
-          transaction
+      // 4. Créer la fiche client
 
-        });
+      const client = await Client.create({
 
-        if (existingClient) {
+        prospectId: prospect.id,
+        name: prospect.name,
+        email: prospect.email || '',
+        phone: prospect.phone || '',
+        website: prospect.website || '',
+        city: prospect.location || '',
+        notes: prospect.notes || '',
+        status: 'Actif'
 
-          return {
-            status: 409,
-            message: 'Ce prospect est déjà un client.',
-            client: existingClient
-          };
+      }, { transaction });
 
-        }
+      // 5. Rattacher les emails existants
 
-        // 3. Créer la fiche client
+      const [emailsCount] = await Email.update({
 
-        const client = await Client.create({
+        clientId: client.id
 
+      }, {
+
+        where: {
           prospectId: prospect.id,
-          name: prospect.name,
-          email: prospect.email || '',
-          phone: prospect.phone || '',
-          website: prospect.website || '',
-          city: prospect.location || '',
-          notes: prospect.notes || '',
-          status: 'Actif'
+          clientId: null
+        },
 
-        }, { transaction });
+        silent: true,
+        transaction
 
-        // 4. Rattacher les emails existants
+      });
 
-        const [emailsCount] = await Email.update({
+      // 6. Rattacher les brouillons existants
 
-          clientId: client.id
+      const [draftsCount] = await Draft.update({
 
-        }, {
+        clientId: client.id
 
-          where: {
-            prospectId: prospect.id,
-            clientId: null
-          },
+      }, {
 
-          silent: true,
-          transaction
+        where: {
+          prospectId: prospect.id,
+          clientId: null
+        },
 
-        });
+        silent: true,
+        transaction
 
-        // 5. Rattacher les brouillons existants
+      });
 
-        const [draftsCount] = await Draft.update({
+      // Adapter les brouillons de prospection
+      // sans modifier les réponses et transferts
 
-          clientId: client.id
+      await Draft.update({
 
-        }, {
+        mode: 'client'
 
-          where: {
-            prospectId: prospect.id,
-            clientId: null
-          },
+      }, {
 
-          silent: true,
-          transaction
+        where: {
+          prospectId: prospect.id,
+          clientId: client.id,
+          mode: 'prospect'
+        },
 
-        });
+        silent: true,
+        transaction
 
-        // Adapter les brouillons de prospection
-        // sans modifier les réponses et transferts
+      });
 
-        await Draft.update({
+      // 7. Rattacher les interactions existantes
 
-          mode: 'client'
+      const [interactionsCount] = await Interaction.update({
 
-        }, {
+        clientId: client.id
 
-          where: {
-            prospectId: prospect.id,
-            clientId: client.id,
-            mode: 'prospect'
-          },
+      }, {
 
-          silent: true,
-          transaction
+        where: {
+          prospectId: prospect.id,
+          clientId: null
+        },
 
-        });
+        silent: true,
+        transaction
 
-        // 6. Rattacher les interactions existantes
+      });
 
-        const [interactionsCount] = await Interaction.update({
+      // 8. Rattacher tous les devis existants
+      //
+      // Le prospectId est conservé.
+      // Les données commerciales et légales
+      // du devis ne sont pas modifiées.
 
-          clientId: client.id
+      const [quotesCount] = await Quote.update({
 
-        }, {
+        clientId: client.id
 
-          where: {
-            prospectId: prospect.id,
-            clientId: null
-          },
+      }, {
 
-          silent: true,
-          transaction
+        where: {
+          prospectId: prospect.id,
+          clientId: null
+        },
 
-        });
+        fields: ['clientId'],
 
-        // 7. Mettre à jour le prospect
+        silent: true,
 
-        const previousStatus = prospect.status;
+        transaction
 
-        await prospect.update({
+      });
 
-          status: 'Client',
-          nextFollowUp: null
+      // 9. Mettre à jour le prospect
 
-        }, { transaction });
+      const previousStatus = prospect.status;
 
-        // 8. Enregistrer la conversion
+      await prospect.update({
+
+        status: 'Client',
+        nextFollowUp: null
+
+      }, { transaction });
+
+      // 10. Enregistrer la conversion
+
+      await Interaction.create({
+
+        prospectId: prospect.id,
+        clientId: client.id,
+        type: 'note',
+        subject: 'Conversion en client',
+        content: 'Le prospect a été converti en client.'
+
+      }, { transaction });
+
+      // 11. Enregistrer le changement de statut
+
+      if (previousStatus !== 'Client') {
 
         await Interaction.create({
 
           prospectId: prospect.id,
           clientId: client.id,
-          type: 'note',
-          subject: 'Conversion en client',
-          content: 'Le prospect a été converti en client.'
+          type: 'status_change',
+          subject: 'Changement de statut',
+          content: `${previousStatus} → Client`
 
         }, { transaction });
 
-        // 9. Enregistrer le changement de statut
+      }
 
-        if (previousStatus !== 'Client') {
+      // 12. Retourner le résultat
 
-          await Interaction.create({
+      return {
 
-            prospectId: prospect.id,
-            clientId: client.id,
-            type: 'status_change',
-            subject: 'Changement de statut',
-            content: `${previousStatus} → Client`
+        status: 201,
 
-          }, { transaction });
+        client,
 
+        transferred: {
+          emails: emailsCount,
+          drafts: draftsCount,
+          interactions: interactionsCount,
+          quotes: quotesCount
         }
 
-        // 10. Retourner le résultat
+      };
 
-        return {
-
-          status: 201,
-
-          client,
-
-          transferred: {
-            emails: emailsCount,
-            drafts: draftsCount,
-            interactions: interactionsCount
-          }
-
-        };
-
-      }
-    );
+    });
 
     res.status(result.status).json(result);
 
@@ -729,6 +816,22 @@ exports.convertProspect = async (req, res, next) => {
       return res.status(409).json({
         message:
           'Ce prospect est déjà associé à un client.'
+      });
+
+    }
+
+    // Gestion des écritures concurrentes SQLite
+
+    if (
+      error.original?.code === 'SQLITE_BUSY' ||
+      error.parent?.code === 'SQLITE_BUSY'
+    ) {
+
+      return res.status(503).json({
+
+        message:
+          'La base de données est occupée. Vérifiez si le prospect a été converti avant de réessayer.'
+
       });
 
     }

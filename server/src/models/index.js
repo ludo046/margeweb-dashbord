@@ -6,6 +6,10 @@ const Email = require('./email.model');
 const Draft = require('./draft.model');
 const Client = require('./client.model');
 const Subscription = require('./subscription.model');
+const Quote = require('./quote.model');
+const QuoteItem = require('./quote-item.model');
+const QuoteSequence = require('./quote-sequence.model');
+const CompanySettings = require('./company-settings.model');
 
 // ==========================================
 // PROSPECTS / INTERACTIONS
@@ -156,6 +160,78 @@ Subscription.belongsTo(Client, {
 });
 
 // ==========================================
+// PROSPECTS / DEVIS
+// ==========================================
+
+Prospect.hasMany(Quote, {
+  foreignKey: {
+    name: 'prospectId',
+    allowNull: true
+  },
+  as: 'quotes',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
+Quote.belongsTo(Prospect, {
+  foreignKey: {
+    name: 'prospectId',
+    allowNull: true
+  },
+  as: 'prospect',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
+// ==========================================
+// CLIENTS / DEVIS
+// ==========================================
+
+Client.hasMany(Quote, {
+  foreignKey: {
+    name: 'clientId',
+    allowNull: true
+  },
+  as: 'quotes',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
+Quote.belongsTo(Client, {
+  foreignKey: {
+    name: 'clientId',
+    allowNull: true
+  },
+  as: 'client',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE'
+});
+
+// ==========================================
+// DEVIS / LIGNES DE PRESTATIONS
+// ==========================================
+
+Quote.hasMany(QuoteItem, {
+  foreignKey: {
+    name: 'quoteId',
+    allowNull: false
+  },
+  as: 'items',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+QuoteItem.belongsTo(Quote, {
+  foreignKey: {
+    name: 'quoteId',
+    allowNull: false
+  },
+  as: 'quote',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+// ==========================================
 // EXPORTS
 // ==========================================
 
@@ -166,5 +242,9 @@ module.exports = {
   Email,
   Draft,
   Client,
-  Subscription
+  Subscription,
+  Quote,
+  QuoteItem,
+  QuoteSequence,
+  CompanySettings
 };

@@ -7,7 +7,9 @@ const sequelize = require('../config/database');
 const migrations = [
   require('./000-initial-schema'),
   require('./001-client-relations'),
-  require('./002-subscriptions')
+  require('./002-subscriptions'),
+  require('./003-quotes'),
+  require('./004-company-settings')
 ];
 
 // Table de suivi des migrations

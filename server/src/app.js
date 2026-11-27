@@ -11,6 +11,7 @@ const emailRoutes = require('./routes/email.routes');
 const draftRoutes = require('./routes/draft.routes');
 const clientRoutes = require('./routes/client.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
+const quoteRoutes = require('./routes/quote.routes');
 
 const errorMiddleware = require('./middlewares/error.middleware');
 
@@ -56,6 +57,8 @@ app.use('/api/drafts', draftRoutes);
 app.use('/api/clients', clientRoutes);
 
 app.use('/api/subscriptions', subscriptionRoutes);
+
+app.use('/api/quotes', quoteRoutes);
 
 // Route introuvable
 

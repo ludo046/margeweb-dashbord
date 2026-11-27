@@ -1,5 +1,7 @@
 <div class="dashboard">
 
+  <!-- En-tête -->
+
   <header class="topbar">
 
     <div>
@@ -8,26 +10,30 @@
 
       <h1>Tableau de bord</h1>
 
-      <p>Vue d'ensemble de ton activité commerciale.</p>
+      <p>Vue d'ensemble de ton activité commerciale et financière.</p>
 
     </div>
 
     <button
       type="button"
       class="refresh-btn"
-      [disabled]="loading()"
+      [disabled]="loading() || subscriptionsLoading()"
       (click)="refresh()">
 
-      {{ loading() ? 'Chargement...' : '↻ Actualiser' }}
+      {{ loading() || subscriptionsLoading()
+        ? 'Chargement...'
+        : '↻ Actualiser' }}
 
     </button>
 
   </header>
 
+  <!-- Chargement des données commerciales -->
+
   @if (loading()) {
 
     <p class="information">
-      Chargement des données...
+      Chargement des données commerciales...
     </p>
 
   } @else if (error()) {
@@ -35,7 +41,7 @@
     <div class="information error">
 
       <strong>
-        Impossible de charger le tableau de bord.
+        Impossible de charger les données commerciales.
       </strong>
 
       <p>{{ error() }}</p>
@@ -105,39 +111,69 @@
 
     }
 
-    <!-- Indicateurs principaux -->
+  }
 
-    <div class="stats">
+  <!-- Indicateurs principaux -->
 
-      <a
-        class="stat-card clickable"
-        routerLink="/prospects">
+  <div class="stats">
 
-        <span>Prospects</span>
+    <a
+      class="stat-card clickable"
+      routerLink="/prospects">
+
+      <span>Prospects</span>
+
+      @if (loading() || error()) {
+
+        <strong>—</strong>
+
+        <small>Données indisponibles</small>
+
+      } @else {
 
         <strong>{{ totalProspects() }}</strong>
 
         <small>{{ toContact() }} à contacter</small>
 
-      </a>
+      }
 
-      <a
-        class="stat-card clickable"
-        routerLink="/pipeline">
+    </a>
 
-        <span>Prospects contactés</span>
+    <a
+      class="stat-card clickable"
+      routerLink="/pipeline">
+
+      <span>Prospects contactés</span>
+
+      @if (loading() || error()) {
+
+        <strong>—</strong>
+
+        <small>Données indisponibles</small>
+
+      } @else {
 
         <strong>{{ contacted() }}</strong>
 
         <small>{{ toFollowUp() }} à relancer</small>
 
-      </a>
+      }
 
-      <a
-        class="stat-card clickable"
-        routerLink="/clients">
+    </a>
 
-        <span>Clients actifs</span>
+    <a
+      class="stat-card clickable"
+      routerLink="/clients">
+
+      <span>Clients actifs</span>
+
+      @if (loading() || error()) {
+
+        <strong>—</strong>
+
+        <small>Données indisponibles</small>
+
+      } @else {
 
         <strong>{{ clients() }}</strong>
 
@@ -145,286 +181,812 @@
           {{ conversionRate() }} % de conversion
         </small>
 
-      </a>
+      }
 
-      <article class="stat-card accent">
+    </a>
 
-        <span>Revenu mensuel récurrent</span>
+    <!-- Revenu mensuel récurrent -->
+
+    <a
+      class="stat-card accent clickable"
+      routerLink="/subscriptions">
+
+      <span>Revenu mensuel récurrent</span>
+
+      @if (subscriptionsLoading()) {
 
         <strong>—</strong>
 
-        <small>Module Abonnements à venir</small>
+        <small>Chargement...</small>
 
-      </article>
+      } @else if (!subscriptionsReady()) {
 
-    </div>
+        <strong>—</strong>
 
-    <!-- Potentiel financier -->
+        <small>Données indisponibles</small>
 
-    <div class="financial-grid">
-
-      <article class="financial-card">
-
-        <span>Potentiel de création de sites</span>
-
-        <strong>
-          {{ potentialQuotes() |
-            currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
-        </strong>
-
-        <small>
-          Montants estimés des opportunités commerciales
-        </small>
-
-      </article>
-
-      <article class="financial-card">
-
-        <span>Abonnements potentiels</span>
+      } @else {
 
         <strong>
 
-          {{ potentialRevenue() |
-            currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
-
-          <small>/ mois</small>
+          {{ monthlyRevenue() |
+            currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
 
         </strong>
 
         <small>
-          Revenus récurrents non contractualisés
+          {{ activeSubscriptions() }}
+          abonnement(s) générant des revenus
         </small>
 
-      </article>
+      }
 
-    </div>
+    </a>
 
-    <div class="dashboard-grid">
+  </div>
 
-      <!-- Pipeline -->
+  <!-- ========================================== -->
+  <!-- REVENUS RÉCURRENTS                          -->
+  <!-- ========================================== -->
 
-      <section class="panel">
+  <section class="revenue-section">
 
-        <div class="panel-heading">
+    <div class="section-heading">
 
-          <h2>Pipeline commercial</h2>
+      <div>
 
-          <a routerLink="/pipeline">
-            Voir le pipeline →
-          </a>
+        <span class="section-eyebrow">
+          SUIVI FINANCIER
+        </span>
 
-        </div>
+        <h2>Revenus récurrents</h2>
 
         <p>
-          Répartition de tes {{ totalOpportunities() }}
-          opportunité(s) commerciales.
+          Suivi des abonnements et des revenus contractualisés.
         </p>
 
-        @for (stage of pipeline(); track stage.label) {
+      </div>
 
-          <div class="pipeline-stage">
+      <a
+        class="section-link"
+        routerLink="/subscriptions">
 
-            <div class="stage-label">
+        Gérer les abonnements →
 
-              <span>{{ stage.label }}</span>
+      </a>
 
-              <strong>{{ stage.count }}</strong>
+    </div>
+
+    @if (subscriptionsLoading()) {
+
+      <div class="revenue-state">
+
+        <span class="revenue-spinner"></span>
+
+        <p>Chargement des statistiques financières...</p>
+
+      </div>
+
+    } @else if (subscriptionsError()) {
+
+      <div class="information error">
+
+        <strong>
+          Impossible de charger les statistiques financières.
+        </strong>
+
+        <p>{{ subscriptionsError() }}</p>
+
+        <button
+          type="button"
+          class="refresh-btn"
+          (click)="refreshSubscriptions()">
+
+          Réessayer
+
+        </button>
+
+      </div>
+
+    } @else if (subscriptionsReady()) {
+
+      <!-- Alertes financières -->
+
+      @if (hasSubscriptionAlerts()) {
+
+        <div class="subscription-alerts">
+
+          @if (hasOverdueBilling()) {
+
+            <div class="subscription-alert">
+
+              <span class="subscription-alert-icon">!</span>
+
+              <div>
+
+                <strong>
+                  {{ overdueBilling() }}
+                  échéance(s) dépassée(s)
+                </strong>
+
+                <p>
+                  Certaines échéances contractuelles
+                  nécessitent ton attention.
+                </p>
+
+              </div>
+
+              <a routerLink="/subscriptions">
+                Consulter →
+              </a>
 
             </div>
 
-            <div class="progress-track">
+          }
 
-              <div
-                class="progress-fill"
-                [style.background]="stage.color"
-                [style.width.%]="totalOpportunities()
-                  ? stage.count / totalOpportunities() * 100
-                  : 0">
+          @if (hasExpiredSubscriptions()) {
+
+            <div class="subscription-alert">
+
+              <span class="subscription-alert-icon">!</span>
+
+              <div>
+
+                <strong>
+                  {{ expiredSubscriptions() }}
+                  abonnement(s) arrivé(s) à expiration
+                </strong>
+
+                <p>
+                  Vérifie les contrats dont la date de fin
+                  est dépassée.
+                </p>
+
+              </div>
+
+              <a routerLink="/subscriptions">
+                Consulter →
+              </a>
+
+            </div>
+
+          }
+
+        </div>
+
+      }
+
+      <!-- Indicateurs financiers -->
+
+      <div class="revenue-grid">
+
+        <!-- ARR -->
+
+        <article class="revenue-card">
+
+          <div class="revenue-card-heading">
+
+            <span>Revenus annuels récurrents</span>
+
+            <span class="revenue-icon annual-icon">
+              ↗
+            </span>
+
+          </div>
+
+          <strong class="revenue-value">
+
+            {{ annualRevenue() |
+              currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+
+          </strong>
+
+          <small>Équivalent annuel des contrats actifs</small>
+
+        </article>
+
+        <!-- Abonnements actifs -->
+
+        <article class="revenue-card">
+
+          <div class="revenue-card-heading">
+
+            <span>Abonnements actifs</span>
+
+            <span class="revenue-icon active-icon">
+              ↻
+            </span>
+
+          </div>
+
+          <strong class="revenue-value">
+            {{ activeSubscriptions() }}
+          </strong>
+
+          <small>Contrats générant des revenus</small>
+
+        </article>
+
+        <!-- Revenu moyen -->
+
+        <article class="revenue-card">
+
+          <div class="revenue-card-heading">
+
+            <span>Revenu mensuel moyen</span>
+
+            <span class="revenue-icon average-icon">
+              €
+            </span>
+
+          </div>
+
+          <strong class="revenue-value">
+
+            {{ averageMonthlyRevenue() |
+              currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+
+          </strong>
+
+          <small>Par abonnement générant des revenus</small>
+
+        </article>
+
+        <!-- Prochaines échéances -->
+
+        <article class="revenue-card">
+
+          <div class="revenue-card-heading">
+
+            <span>Prochaines échéances</span>
+
+            <span class="revenue-icon billing-icon">
+              ▦
+            </span>
+
+          </div>
+
+          <strong class="revenue-value">
+            {{ upcomingBilling() }}
+          </strong>
+
+          <small>Dans les 30 prochains jours</small>
+
+        </article>
+
+      </div>
+
+      <!-- Détails des abonnements -->
+
+      <div class="subscription-details-grid">
+
+        <!-- Portefeuille d'abonnements -->
+
+        <section class="panel subscription-panel">
+
+          <div class="panel-heading">
+
+            <h2>Portefeuille d'abonnements</h2>
+
+            <a routerLink="/subscriptions">
+              Tout voir →
+            </a>
+
+          </div>
+
+          <p>
+            {{ totalSubscriptions() }}
+            abonnement(s) enregistré(s), historique inclus.
+          </p>
+
+          <div class="subscription-summary">
+
+            <div class="subscription-summary-item">
+
+              <span class="subscription-dot active"></span>
+
+              <span>Générant des revenus</span>
+
+              <strong>{{ activeSubscriptions() }}</strong>
+
+            </div>
+
+            <div class="subscription-summary-item">
+
+              <span class="subscription-dot upcoming"></span>
+
+              <span>À venir</span>
+
+              <strong>{{ upcomingSubscriptions() }}</strong>
+
+            </div>
+
+            <div class="subscription-summary-item">
+
+              <span class="subscription-dot suspended"></span>
+
+              <span>Suspendus</span>
+
+              <strong>{{ suspendedSubscriptions() }}</strong>
+
+            </div>
+
+            <div class="subscription-summary-item">
+
+              <span class="subscription-dot cancelled"></span>
+
+              <span>Résiliés</span>
+
+              <strong>{{ cancelledSubscriptions() }}</strong>
+
+            </div>
+
+            <div class="subscription-summary-item">
+
+              <span class="subscription-dot expired"></span>
+
+              <span>Dates de fin dépassées</span>
+
+              <strong>{{ expiredSubscriptions() }}</strong>
+
+            </div>
+
+          </div>
+
+          <p class="subscription-note">
+
+            Les abonnements expirés peuvent également
+            appartenir à un autre statut.
+
+          </p>
+
+        </section>
+
+        <!-- Répartition des cycles -->
+
+        <section class="panel subscription-panel">
+
+          <div class="panel-heading">
+
+            <h2>Cycles de facturation</h2>
+
+          </div>
+
+          <p>
+            Répartition des abonnements générant
+            actuellement des revenus.
+          </p>
+
+          @if ((activeSubscriptions() ?? 0) > 0) {
+
+            <div class="billing-distribution">
+
+              @for (
+                item of billingDistribution();
+                track item.label
+              ) {
+
+                <div class="billing-distribution-item">
+
+                  <div class="billing-distribution-label">
+
+                    <span>
+
+                      <span
+                        class="billing-dot"
+                        [style.background]="item.color">
+                      </span>
+
+                      {{ item.label }}
+
+                    </span>
+
+                    <strong>
+
+                      {{ item.count }}
+
+                      <small>
+                        {{ item.percentage }} %
+                      </small>
+
+                    </strong>
+
+                  </div>
+
+                  <div class="progress-track">
+
+                    <div
+                      class="progress-fill"
+                      [style.background]="item.color"
+                      [style.width.%]="item.percentage">
+                    </div>
+
+                  </div>
+
+                </div>
+
+              }
+
+            </div>
+
+          } @else {
+
+            <div class="subscription-empty">
+
+              <span class="subscription-empty-icon">
+                ↻
+              </span>
+
+              <strong>Aucun revenu récurrent</strong>
+
+              <p>
+                Les abonnements apparaîtront ici
+                lorsqu'ils généreront des revenus.
+              </p>
+
+              <a routerLink="/subscriptions">
+                Gérer les abonnements →
+              </a>
+
+            </div>
+
+          }
+
+        </section>
+
+      </div>
+
+      <!-- Information financière -->
+
+      <div class="revenue-information">
+
+        <span class="revenue-information-icon">i</span>
+
+        <p>
+
+          Les revenus récurrents représentent les montants
+          contractualisés, et non le chiffre d'affaires encaissé.
+          Une échéance dépassée ne constitue pas nécessairement
+          une facture impayée.
+
+        </p>
+
+      </div>
+
+    } @else {
+
+      <div class="revenue-state">
+
+        <p>Les statistiques financières sont indisponibles.</p>
+
+        <button
+          type="button"
+          class="refresh-btn"
+          (click)="refreshSubscriptions()">
+
+          Réessayer
+
+        </button>
+
+      </div>
+
+    }
+
+  </section>
+
+  <!-- ========================================== -->
+  <!-- ACTIVITÉ COMMERCIALE                        -->
+  <!-- ========================================== -->
+
+  @if (!loading() && !error()) {
+
+    <section class="commercial-section">
+
+      <div class="section-heading">
+
+        <div>
+
+          <span class="section-eyebrow">
+            DÉVELOPPEMENT COMMERCIAL
+          </span>
+
+          <h2>Opportunités commerciales</h2>
+
+          <p>
+            Suivi de la prospection et du potentiel de croissance.
+          </p>
+
+        </div>
+
+        <a
+          class="section-link"
+          routerLink="/pipeline">
+
+          Voir le pipeline →
+
+        </a>
+
+      </div>
+
+      <!-- Potentiel financier -->
+
+      <div class="financial-grid">
+
+        <article class="financial-card">
+
+          <span>Potentiel de création de sites</span>
+
+          <strong>
+            {{ potentialQuotes() |
+              currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+          </strong>
+
+          <small>
+            Montants estimés des opportunités commerciales
+          </small>
+
+        </article>
+
+        <article class="financial-card">
+
+          <span>Abonnements potentiels</span>
+
+          <strong>
+
+            {{ potentialRevenue() |
+              currency:'EUR':'symbol':'1.0-2':'fr-FR' }}
+
+            <small>/ mois</small>
+
+          </strong>
+
+          <small>
+            Revenus récurrents non contractualisés
+          </small>
+
+        </article>
+
+      </div>
+
+      <div class="dashboard-grid">
+
+        <!-- Pipeline -->
+
+        <section class="panel">
+
+          <div class="panel-heading">
+
+            <h2>Pipeline commercial</h2>
+
+            <a routerLink="/pipeline">
+              Voir le pipeline →
+            </a>
+
+          </div>
+
+          <p>
+            Répartition de tes {{ totalOpportunities() }}
+            opportunité(s) commerciales.
+          </p>
+
+          @for (stage of pipeline(); track stage.label) {
+
+            <div class="pipeline-stage">
+
+              <div class="stage-label">
+
+                <span>{{ stage.label }}</span>
+
+                <strong>{{ stage.count }}</strong>
+
+              </div>
+
+              <div class="progress-track">
+
+                <div
+                  class="progress-fill"
+                  [style.background]="stage.color"
+                  [style.width.%]="totalOpportunities()
+                    ? stage.count / totalOpportunities() * 100
+                    : 0">
+                </div>
+
+              </div>
+
+            </div>
+
+          }
+
+        </section>
+
+        <!-- Derniers prospects -->
+
+        <section class="panel">
+
+          <div class="panel-heading">
+
+            <h2>Derniers prospects</h2>
+
+            <a routerLink="/prospects">
+              Tout voir →
+            </a>
+
+          </div>
+
+          @for (
+            prospect of recentProspects();
+            track prospect.id
+          ) {
+
+            <a
+              class="recent-prospect"
+              [routerLink]="['/prospects', prospect.id]">
+
+              <div class="prospect-avatar">
+
+                {{ prospect.name.charAt(0).toUpperCase() }}
+
+              </div>
+
+              <div class="prospect-info">
+
+                <strong>{{ prospect.name }}</strong>
+
+                <small>
+                  {{ prospect.location || 'Non renseignée' }}
+                </small>
+
+              </div>
+
+              <span
+                class="status"
+                [class.pending-status]="prospect.status === 'Client'">
+
+                {{ prospect.status === 'Client'
+                  ? 'À convertir'
+                  : prospect.status }}
+
+              </span>
+
+            </a>
+
+          } @empty {
+
+            <p>Aucun prospect enregistré.</p>
+
+          }
+
+        </section>
+
+        <!-- Portefeuille clients -->
+
+        <section class="panel client-panel">
+
+          <div class="panel-heading">
+
+            <h2>Portefeuille clients</h2>
+
+            <a routerLink="/clients">
+              Voir les clients →
+            </a>
+
+          </div>
+
+          <p>Répartition de tes clients par statut.</p>
+
+          <div class="client-summary">
+
+            <div class="client-stat">
+
+              <span class="client-dot active"></span>
+
+              <div>
+
+                <small>Actifs</small>
+
+                <strong>{{ clients() }}</strong>
+
+              </div>
+
+            </div>
+
+            <div class="client-stat">
+
+              <span class="client-dot inactive"></span>
+
+              <div>
+
+                <small>Inactifs</small>
+
+                <strong>{{ inactiveClients() }}</strong>
+
+              </div>
+
+            </div>
+
+            <div class="client-stat">
+
+              <span class="client-dot archived"></span>
+
+              <div>
+
+                <small>Archivés</small>
+
+                <strong>{{ archivedClients() }}</strong>
+
               </div>
 
             </div>
 
           </div>
 
-        }
+        </section>
 
-      </section>
+        <!-- Performance commerciale -->
 
-      <!-- Derniers prospects -->
+        <section class="panel">
 
-      <section class="panel">
+          <div class="panel-heading">
 
-        <div class="panel-heading">
-
-          <h2>Derniers prospects</h2>
-
-          <a routerLink="/prospects">
-            Tout voir →
-          </a>
-
-        </div>
-
-        @for (
-          prospect of recentProspects();
-          track prospect.id
-        ) {
-
-          <a
-            class="recent-prospect"
-            [routerLink]="['/prospects', prospect.id]">
-
-            <div class="prospect-avatar">
-
-              {{ prospect.name.charAt(0).toUpperCase() }}
-
-            </div>
-
-            <div class="prospect-info">
-
-              <strong>{{ prospect.name }}</strong>
-
-              <small>
-                {{ prospect.location || 'Non renseignée' }}
-              </small>
-
-            </div>
-
-            <span
-              class="status"
-              [class.pending-status]="prospect.status === 'Client'">
-
-              {{ prospect.status === 'Client'
-                ? 'À convertir'
-                : prospect.status }}
-
-            </span>
-
-          </a>
-
-        } @empty {
-
-          <p>Aucun prospect enregistré.</p>
-
-        }
-
-      </section>
-
-      <!-- Portefeuille clients -->
-
-      <section class="panel client-panel">
-
-        <div class="panel-heading">
-
-          <h2>Portefeuille clients</h2>
-
-          <a routerLink="/clients">
-            Voir les clients →
-          </a>
-
-        </div>
-
-        <p>Répartition de tes clients par statut.</p>
-
-        <div class="client-summary">
-
-          <div class="client-stat">
-
-            <span class="client-dot active"></span>
-
-            <div>
-              <small>Actifs</small>
-              <strong>{{ clients() }}</strong>
-            </div>
+            <h2>Performance commerciale</h2>
 
           </div>
 
-          <div class="client-stat">
+          <p>Suivi de la transformation de tes prospects.</p>
 
-            <span class="client-dot inactive"></span>
+          <div class="conversion-summary">
 
-            <div>
-              <small>Inactifs</small>
-              <strong>{{ inactiveClients() }}</strong>
-            </div>
+            <div class="conversion-rate">
 
-          </div>
+              <strong>{{ conversionRate() }} %</strong>
 
-          <div class="client-stat">
-
-            <span class="client-dot archived"></span>
-
-            <div>
-              <small>Archivés</small>
-              <strong>{{ archivedClients() }}</strong>
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      <!-- Performance commerciale -->
-
-      <section class="panel">
-
-        <div class="panel-heading">
-
-          <h2>Performance commerciale</h2>
-
-        </div>
-
-        <p>Suivi de la transformation de tes prospects.</p>
-
-        <div class="conversion-summary">
-
-          <div class="conversion-rate">
-
-            <strong>{{ conversionRate() }} %</strong>
-
-            <span>Taux de conversion</span>
-
-          </div>
-
-          <div class="conversion-details">
-
-            <div>
-
-              <span>Prospects convertis</span>
-
-              <strong>{{ convertedProspects() }}</strong>
+              <span>Taux de conversion</span>
 
             </div>
 
-            <div>
+            <div class="conversion-details">
 
-              <span>Prospects non convertis</span>
+              <div>
 
-              <strong>{{ totalProspects() }}</strong>
+                <span>Prospects convertis</span>
+
+                <strong>{{ convertedProspects() }}</strong>
+
+              </div>
+
+              <div>
+
+                <span>Prospects non convertis</span>
+
+                <strong>{{ totalProspects() }}</strong>
+
+              </div>
 
             </div>
 
           </div>
 
-        </div>
+          <div class="progress-track conversion-progress">
 
-        <div class="progress-track conversion-progress">
+            <div
+              class="progress-fill"
+              [style.width.%]="conversionRate()">
+            </div>
 
-          <div
-            class="progress-fill"
-            [style.width.%]="conversionRate()">
           </div>
 
-        </div>
+          <p class="conversion-note">
 
-        <p class="conversion-note">
-          Les clients créés manuellement sont exclus
-          du calcul du taux de conversion.
-        </p>
+            Les clients créés manuellement sont exclus
+            du calcul du taux de conversion.
 
-      </section>
+          </p>
 
-    </div>
+        </section>
+
+      </div>
+
+    </section>
 
   }
 

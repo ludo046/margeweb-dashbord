@@ -1,6 +1,7 @@
 import {
   Component,
   OnInit,
+  DestroyRef,
   computed,
   inject,
   signal
@@ -12,8 +13,16 @@ import {
 } from '@angular/common';
 
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+
+import {
+  ActivatedRoute,
+  Router,
+  RouterLink,
+  ParamMap
+} from '@angular/router';
+
 import { HttpErrorResponse } from '@angular/common/http';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import {
   Subscription,
@@ -75,6 +84,14 @@ export class Subscriptions implements OnInit {
   );
 
   readonly clientsService = inject(ClientsService);
+
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private routeVersion = 0;
+  private destroyed = false;
+  private initialLoad: Promise<void> | null = null;
 
   readonly subscriptions =
     this.subscriptionsService.subscriptions;
@@ -228,8 +245,23 @@ export class Subscriptions implements OnInit {
     this.clientFilter() !== null
   );
 
+  // ==========================================
+  // INITIALISATION
+  // ==========================================
+
   ngOnInit(): void {
-    void this.refresh();
+    this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.routeVersion++;
+    });
+
+    this.initialLoad = this.refresh();
+
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(params => {
+        void this.applyRouteParams(params);
+      });
   }
 
   async refresh(): Promise<void> {
@@ -239,13 +271,148 @@ export class Subscriptions implements OnInit {
     ]);
   }
 
-  // Filtres
+  // ==========================================
+  // PARAMÈTRES DE NAVIGATION
+  // ==========================================
+
+  private parseClientId(
+    value: string | null
+  ): number | null {
+    if (!value || !/^[1-9]\d*$/.test(value)) {
+      return null;
+    }
+
+    const id = Number(value);
+
+    return Number.isSafeInteger(id)
+      ? id
+      : null;
+  }
+
+  private async applyRouteParams(
+    params: ParamMap
+  ): Promise<void> {
+    const version = ++this.routeVersion;
+
+    const rawClientId = params.get('clientId');
+
+    const clientId = this.parseClientId(
+      rawClientId
+    );
+
+    const createRequested =
+      params.get('create') === 'true';
+
+    this.clientFilter.set(clientId);
+
+    await this.initialLoad;
+
+    if (
+      this.destroyed ||
+      version !== this.routeVersion
+    ) {
+      return;
+    }
+
+    // Ne pas ouvrir automatiquement un formulaire
+    // si le chargement des clients a échoué.
+
+    if (this.clientsError()) {
+      if (params.has('create')) {
+        await this.clearCreateParam();
+      }
+
+      return;
+    }
+
+    const client = clientId === null
+      ? undefined
+      : this.clientsService.clients().find(
+          item => item.id === clientId
+        );
+
+    // Suppression d'un identifiant invalide
+    // ou d'un client inexistant.
+
+    if (
+      rawClientId !== null &&
+      !client
+    ) {
+      this.clientFilter.set(null);
+
+      await this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {
+          clientId: null,
+          create: null
+        },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+
+      return;
+    }
+
+    // Un client archivé peut être consulté,
+    // mais aucun abonnement ne peut être créé.
+
+    if (
+      createRequested &&
+      client &&
+      client.status !== 'Archivé' &&
+      !this.busy() &&
+      !this.formOpen() &&
+      !this.confirmation()
+    ) {
+      this.openCreate(client.id);
+    }
+
+    // Le paramètre create est à usage unique.
+
+    if (params.has('create')) {
+      await this.clearCreateParam();
+    }
+  }
+
+  private async clearCreateParam(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+
+    await this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        create: null
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+  }
+
+  // ==========================================
+  // FILTRES
+  // ==========================================
 
   resetFilters(): void {
     this.search.set('');
     this.statusFilter.set('Tous');
     this.billingFilter.set('Tous');
     this.clientFilter.set(null);
+
+    if (
+      this.route.snapshot.queryParamMap.has('clientId') ||
+      this.route.snapshot.queryParamMap.has('create')
+    ) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {
+          clientId: null,
+          create: null
+        },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    }
   }
 
   filterByStatus(
@@ -266,7 +433,9 @@ export class Subscriptions implements OnInit {
       .trim();
   }
 
-  // Formulaire
+  // ==========================================
+  // FORMULAIRE
+  // ==========================================
 
   private today(): string {
     const parts = new Intl.DateTimeFormat(
@@ -318,17 +487,32 @@ export class Subscriptions implements OnInit {
       return;
     }
 
+    const selectedClientId =
+      clientId ?? this.clientFilter();
+
+    const selectedClient =
+      selectedClientId === null
+        ? undefined
+        : this.availableClients().find(
+            client => client.id === selectedClientId
+          );
+
+    // Si un client est explicitement demandé,
+    // il doit être disponible pour la création.
+
+    if (
+      clientId !== undefined &&
+      !selectedClient
+    ) {
+      return;
+    }
+
     this.editingSubscription.set(null);
 
     this.form = this.emptyForm();
 
-    if (
-      clientId &&
-      this.availableClients().some(
-        client => client.id === clientId
-      )
-    ) {
-      this.form.clientId = clientId;
+    if (selectedClient) {
+      this.form.clientId = selectedClient.id;
     }
 
     this.formError.set('');
@@ -424,9 +608,21 @@ export class Subscriptions implements OnInit {
     return this.getFormMonthlyAmount() * 12;
   }
 
+  // ==========================================
+  // VALIDATION
+  // ==========================================
+
   private validateForm(): string | null {
     if (!this.form.clientId) {
       return 'Sélectionne un client.';
+    }
+
+    if (
+      !this.availableClients().some(
+        client => client.id === this.form.clientId
+      )
+    ) {
+      return 'Le client sélectionné est indisponible ou archivé.';
     }
 
     if (!this.form.name.trim()) {
@@ -499,6 +695,10 @@ export class Subscriptions implements OnInit {
 
     return null;
   }
+
+  // ==========================================
+  // ENREGISTREMENT
+  // ==========================================
 
   async save(): Promise<void> {
     if (this.busy() || !this.formOpen()) {
@@ -583,7 +783,9 @@ export class Subscriptions implements OnInit {
     }
   }
 
-  // Actions disponibles
+  // ==========================================
+  // ACTIONS DISPONIBLES
+  // ==========================================
 
   private getClientStatus(
     subscription: Subscription
@@ -652,7 +854,9 @@ export class Subscriptions implements OnInit {
     );
   }
 
-  // Confirmations
+  // ==========================================
+  // CONFIRMATIONS
+  // ==========================================
 
   requestAction(
     subscription: Subscription,
@@ -815,7 +1019,9 @@ export class Subscriptions implements OnInit {
     }
   }
 
-  // Affichage
+  // ==========================================
+  // AFFICHAGE
+  // ==========================================
 
   getMonthlyAmount(
     subscription: Subscription
@@ -890,6 +1096,10 @@ export class Subscriptions implements OnInit {
         return '/ an';
     }
   }
+
+  // ==========================================
+  // GESTION DES ERREURS
+  // ==========================================
 
   private getErrorMessage(
     error: unknown,

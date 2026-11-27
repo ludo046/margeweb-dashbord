@@ -15,6 +15,10 @@ import {
   ClientsService
 } from '../../core/services/clients';
 
+import {
+  SubscriptionsService
+} from '../../core/services/subscriptions';
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -28,7 +32,18 @@ import {
 export class Dashboard {
 
   private readonly service = inject(ProspectsService);
-  private readonly clientsService = inject(ClientsService);
+
+  private readonly clientsService = inject(
+    ClientsService
+  );
+
+  private readonly subscriptionsService = inject(
+    SubscriptionsService
+  );
+
+  // ==========================================
+  // CHARGEMENT DES DONNÉES COMMERCIALES
+  // ==========================================
 
   readonly loading = computed(() =>
     this.service.loading() ||
@@ -40,7 +55,9 @@ export class Dashboard {
     this.clientsService.error()
   );
 
-  // Clients
+  // ==========================================
+  // CLIENTS
+  // ==========================================
 
   readonly allClients = this.clientsService.clients;
 
@@ -62,13 +79,21 @@ export class Dashboard {
     ).length
   );
 
-  // Prospects convertis
+  readonly totalClients = computed(() =>
+    this.clients() + this.inactiveClients()
+  );
+
+  // ==========================================
+  // PROSPECTS CONVERTIS
+  // ==========================================
 
   readonly convertedProspectIds = computed(() =>
     new Set(
       this.allClients()
         .map(client => client.prospectId)
-        .filter((id): id is number => typeof id === 'number')
+        .filter((id): id is number =>
+          typeof id === 'number'
+        )
     )
   );
 
@@ -76,7 +101,9 @@ export class Dashboard {
     this.convertedProspectIds().size
   );
 
-  // Prospects non convertis
+  // ==========================================
+  // PROSPECTS NON CONVERTIS
+  // ==========================================
 
   readonly prospects = computed(() =>
     this.service.prospects().filter(
@@ -93,7 +120,9 @@ export class Dashboard {
     )
   );
 
-  // Opportunités commerciales
+  // ==========================================
+  // OPPORTUNITÉS COMMERCIALES
+  // ==========================================
 
   readonly commercialProspects = computed(() =>
     this.prospects().filter(
@@ -135,12 +164,16 @@ export class Dashboard {
     ).length
   );
 
-  // Potentiel financier
+  // ==========================================
+  // POTENTIEL FINANCIER COMMERCIAL
+  // ==========================================
 
   readonly potentialRevenue = computed(() =>
     this.commercialProspects().reduce(
       (total, prospect) =>
-        total + Number(prospect.monthlySubscription ?? 0),
+        total + Number(
+          prospect.monthlySubscription ?? 0
+        ),
       0
     )
   );
@@ -148,12 +181,185 @@ export class Dashboard {
   readonly potentialQuotes = computed(() =>
     this.commercialProspects().reduce(
       (total, prospect) =>
-        total + Number(prospect.creationQuote ?? 0),
+        total + Number(
+          prospect.creationQuote ?? 0
+        ),
       0
     )
   );
 
-  // Taux de conversion
+  // ==========================================
+  // STATISTIQUES DES ABONNEMENTS
+  // ==========================================
+
+  readonly subscriptionStats =
+    this.subscriptionsService.stats;
+
+  readonly subscriptionsLoading =
+    this.subscriptionsService.statsLoading;
+
+  readonly subscriptionsError =
+    this.subscriptionsService.statsError;
+
+  readonly subscriptionsReady = computed(() =>
+    !this.subscriptionsLoading() &&
+    !this.subscriptionsError() &&
+    this.subscriptionStats() !== null
+  );
+
+  // Nombre total d'abonnements, historique inclus
+
+  readonly totalSubscriptions = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.total
+      : null
+  );
+
+  // Abonnements générant des revenus récurrents
+
+  readonly activeSubscriptions = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.recurringSubscriptions
+      : null
+  );
+
+  // Abonnements à venir
+
+  readonly upcomingSubscriptions = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.upcoming
+      : null
+  );
+
+  // Abonnements suspendus
+
+  readonly suspendedSubscriptions = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.suspended
+      : null
+  );
+
+  // Abonnements résiliés
+
+  readonly cancelledSubscriptions = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.cancelled
+      : null
+  );
+
+  // Abonnements dont la date de fin est dépassée
+
+  readonly expiredSubscriptions = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.expired
+      : null
+  );
+
+  // ==========================================
+  // REVENUS RÉCURRENTS
+  // ==========================================
+
+  // Monthly Recurring Revenue
+
+  readonly monthlyRevenue = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.mrr
+      : null
+  );
+
+  // Annual Recurring Revenue
+
+  readonly annualRevenue = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.arr
+      : null
+  );
+
+  // Revenu mensuel moyen par abonnement actif
+
+  readonly averageMonthlyRevenue = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.averageMonthlyRevenue
+      : null
+  );
+
+  // ==========================================
+  // ÉCHÉANCES DES ABONNEMENTS
+  // ==========================================
+
+  // Échéances prévues dans les 30 prochains jours
+
+  readonly upcomingBilling = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.upcomingBilling
+      : null
+  );
+
+  // Échéances dont la date est dépassée
+
+  readonly overdueBilling = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptionStats()!.overdueBilling
+      : null
+  );
+
+  readonly hasOverdueBilling = computed(() =>
+    (this.overdueBilling() ?? 0) > 0
+  );
+
+  readonly hasExpiredSubscriptions = computed(() =>
+    (this.expiredSubscriptions() ?? 0) > 0
+  );
+
+  readonly hasSubscriptionAlerts = computed(() =>
+    this.hasOverdueBilling() ||
+    this.hasExpiredSubscriptions()
+  );
+
+  // ==========================================
+  // RÉPARTITION DES ABONNEMENTS
+  // ==========================================
+
+  readonly billingDistribution = computed(() => {
+
+    const stats = this.subscriptionStats();
+
+    if (!this.subscriptionsReady() || !stats) {
+      return [];
+    }
+
+    const total = stats.recurringSubscriptions;
+
+    const distribution = [
+      {
+        label: 'Mensuel',
+        count: stats.byBillingCycle.Mensuel,
+        color: '#15b8a6'
+      },
+      {
+        label: 'Trimestriel',
+        count: stats.byBillingCycle.Trimestriel,
+        color: '#3b82f6'
+      },
+      {
+        label: 'Annuel',
+        count: stats.byBillingCycle.Annuel,
+        color: '#8b5cf6'
+      }
+    ];
+
+    return distribution.map(item => ({
+      ...item,
+      percentage: total > 0
+        ? Math.round(item.count / total * 100)
+        : 0
+    }));
+
+  });
+
+  // ==========================================
+  // TAUX DE CONVERSION
+  // ==========================================
 
   readonly conversionRate = computed(() => {
 
@@ -167,7 +373,9 @@ export class Dashboard {
 
   });
 
-  // Derniers prospects
+  // ==========================================
+  // DERNIERS PROSPECTS
+  // ==========================================
 
   readonly recentProspects = computed(() =>
     [...this.prospects()]
@@ -175,7 +383,9 @@ export class Dashboard {
       .slice(0, 5)
   );
 
-  // Pipeline commercial
+  // ==========================================
+  // PIPELINE COMMERCIAL
+  // ==========================================
 
   readonly pipeline = computed(() => [
     {
@@ -202,7 +412,9 @@ export class Dashboard {
     }
   ]);
 
-  // Relances urgentes
+  // ==========================================
+  // RELANCES URGENTES
+  // ==========================================
 
   readonly urgentFollowUpCount = computed(() => {
 
@@ -222,16 +434,31 @@ export class Dashboard {
 
   });
 
+  // ==========================================
+  // CHARGEMENT INITIAL
+  // ==========================================
+
   constructor() {
     void this.refresh();
   }
+
+  // ==========================================
+  // ACTUALISATION
+  // ==========================================
 
   async refresh(): Promise<void> {
 
     await Promise.all([
       this.service.load(),
-      this.clientsService.load()
+      this.clientsService.load(),
+      this.subscriptionsService.loadStats()
     ]);
+
+  }
+
+  async refreshSubscriptions(): Promise<void> {
+
+    await this.subscriptionsService.loadStats();
 
   }
 

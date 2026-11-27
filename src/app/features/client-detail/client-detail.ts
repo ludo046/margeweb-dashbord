@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, CurrencyPipe } from '@angular/common';
 
 import {
   ActivatedRoute,
@@ -24,6 +24,11 @@ import {
 } from '../../core/services/clients';
 
 import {
+  Subscription,
+  SubscriptionsService
+} from '../../core/services/subscriptions';
+
+import {
   InteractionHistory
 } from '../prospect-detail/interaction-history/interaction-history';
 
@@ -37,6 +42,7 @@ import {
   imports: [
     FormsModule,
     DatePipe,
+    CurrencyPipe,
     RouterLink,
     InteractionHistory,
     MailComposer
@@ -49,6 +55,10 @@ export class ClientDetail implements OnInit {
   private readonly service = inject(ClientsService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+
+  readonly subscriptionsService = inject(
+    SubscriptionsService
+  );
 
   readonly isNew =
     this.route.snapshot.routeConfig?.path === 'clients/new';
@@ -69,10 +79,16 @@ export class ClientDetail implements OnInit {
   readonly editing = signal(this.isNew);
   readonly confirmArchive = signal(false);
 
-  // Messagerie
+  // ==========================================
+  // MESSAGERIE
+  // ==========================================
 
   readonly mailOpen = signal(false);
   readonly historyVersion = signal(0);
+
+  // ==========================================
+  // NAVIGATION
+  // ==========================================
 
   readonly activeTab = signal<
     'information' |
@@ -87,7 +103,191 @@ export class ClientDetail implements OnInit {
     'Inactif'
   ];
 
-  // État du client
+  // ==========================================
+  // ABONNEMENTS
+  // ==========================================
+
+  readonly subscriptions = signal<Subscription[]>([]);
+
+  readonly subscriptionsLoading = signal(!this.isNew);
+
+  readonly subscriptionsError = signal<string | null>(
+    null
+  );
+
+  readonly subscriptionsLoaded = signal(false);
+
+  private subscriptionsLoadVersion = 0;
+
+  readonly subscriptionsReady = computed(() =>
+    this.subscriptionsLoaded() &&
+    !this.subscriptionsLoading() &&
+    !this.subscriptionsError()
+  );
+
+  readonly totalSubscriptions = computed(() =>
+    this.subscriptionsReady()
+      ? this.subscriptions().length
+      : null
+  );
+
+  readonly activeSubscriptions = computed(() =>
+    this.subscriptions().filter(
+      subscription => subscription.status === 'Actif'
+    )
+  );
+
+  readonly upcomingSubscriptions = computed(() =>
+    this.subscriptions().filter(
+      subscription => subscription.status === 'À venir'
+    )
+  );
+
+  readonly suspendedSubscriptions = computed(() =>
+    this.subscriptions().filter(
+      subscription => subscription.status === 'Suspendu'
+    )
+  );
+
+  readonly cancelledSubscriptions = computed(() =>
+    this.subscriptions().filter(
+      subscription => subscription.status === 'Résilié'
+    )
+  );
+
+  readonly expiredSubscriptions = computed(() =>
+    this.subscriptions().filter(
+      subscription => this.isSubscriptionExpired(subscription)
+    )
+  );
+
+  // Abonnements générant réellement
+  // des revenus récurrents.
+
+  readonly recurringSubscriptions = computed(() => {
+
+    if (this.client()?.status !== 'Actif') {
+      return [];
+    }
+
+    const today = this.businessDate();
+
+    return this.activeSubscriptions().filter(
+      subscription =>
+        subscription.startDate <= today &&
+        (
+          !subscription.endDate ||
+          subscription.endDate >= today
+        )
+    );
+
+  });
+
+  readonly activeSubscriptionCount = computed(() =>
+    this.subscriptionsReady()
+      ? this.recurringSubscriptions().length
+      : null
+  );
+
+  // Revenu annuel calculé en centimes
+  // pour limiter les erreurs d'arrondi.
+
+  private readonly annualRevenueCents = computed(() =>
+    this.recurringSubscriptions().reduce(
+      (total, subscription) =>
+        total + Math.round(
+          this.subscriptionsService.getAnnualAmount(
+            subscription
+          ) * 100
+        ),
+      0
+    )
+  );
+
+  readonly monthlyRevenue = computed(() => {
+
+    if (!this.subscriptionsReady()) {
+      return null;
+    }
+
+    return Math.round(
+      this.annualRevenueCents() / 12
+    ) / 100;
+
+  });
+
+  readonly annualRevenue = computed(() => {
+
+    if (!this.subscriptionsReady()) {
+      return null;
+    }
+
+    return this.annualRevenueCents() / 100;
+
+  });
+
+  readonly overdueSubscriptions = computed(() =>
+    this.recurringSubscriptions().filter(
+      subscription =>
+        this.isSubscriptionOverdue(subscription)
+    )
+  );
+
+  readonly nextBillingDate = computed(() => {
+
+    if (!this.subscriptionsReady()) {
+      return null;
+    }
+
+    const today = this.businessDate();
+
+    const dates = this.recurringSubscriptions()
+      .map(subscription => subscription.nextBillingDate)
+      .filter(
+        (date): date is string =>
+          !!date && date >= today
+      )
+      .sort();
+
+    return dates[0] ?? null;
+
+  });
+
+  readonly sortedSubscriptions = computed(() => {
+
+    const order: Record<
+      Subscription['status'],
+      number
+    > = {
+      'Actif': 0,
+      'À venir': 1,
+      'Suspendu': 2,
+      'Résilié': 3
+    };
+
+    return [...this.subscriptions()].sort(
+      (a, b) => {
+
+        const statusDifference =
+          order[a.status] - order[b.status];
+
+        if (statusDifference !== 0) {
+          return statusDifference;
+        }
+
+        return a.name.localeCompare(
+          b.name,
+          'fr'
+        );
+
+      }
+    );
+
+  });
+
+  // ==========================================
+  // ÉTAT DU CLIENT
+  // ==========================================
 
   readonly isArchived = computed(() =>
     this.client()?.status === 'Archivé'
@@ -99,7 +299,9 @@ export class ClientDetail implements OnInit {
     this.archiving()
   );
 
-  // Autorisations
+  // ==========================================
+  // AUTORISATIONS
+  // ==========================================
 
   readonly canEdit = computed(() =>
     !this.busy() &&
@@ -143,9 +345,30 @@ export class ClientDetail implements OnInit {
     !this.confirmArchive()
   );
 
+  readonly canCreateSubscription = computed(() =>
+    !this.isNew &&
+    !!this.client() &&
+    !this.isArchived() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen() &&
+    !this.confirmArchive()
+  );
+
+  readonly canViewSubscriptions = computed(() =>
+    !this.isNew &&
+    !!this.client() &&
+    !this.busy() &&
+    !this.editing() &&
+    !this.mailOpen() &&
+    !this.confirmArchive()
+  );
+
   draft: Client = this.emptyClient();
 
-  // Initialisation
+  // ==========================================
+  // INITIALISATION
+  // ==========================================
 
   ngOnInit(): void {
 
@@ -157,7 +380,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Date locale
+  // ==========================================
+  // DATES
+  // ==========================================
 
   private localDate(): string {
 
@@ -171,7 +396,40 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Nouveau client
+  // Date métier identique au backend :
+  // fuseau horaire Europe/Paris.
+
+  private businessDate(): string {
+
+    const parts = new Intl.DateTimeFormat(
+      'fr-FR',
+      {
+        timeZone: 'Europe/Paris',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }
+    ).formatToParts(new Date());
+
+    const year = parts.find(
+      part => part.type === 'year'
+    )?.value;
+
+    const month = parts.find(
+      part => part.type === 'month'
+    )?.value;
+
+    const day = parts.find(
+      part => part.type === 'day'
+    )?.value;
+
+    return `${year}-${month}-${day}`;
+
+  }
+
+  // ==========================================
+  // NOUVEAU CLIENT
+  // ==========================================
 
   private emptyClient(): Client {
 
@@ -195,7 +453,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Gestion des erreurs
+  // ==========================================
+  // GESTION DES ERREURS
+  // ==========================================
 
   private getErrorMessage(
     error: unknown,
@@ -215,7 +475,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Chargement de la fiche
+  // ==========================================
+  // CHARGEMENT DE LA FICHE
+  // ==========================================
 
   async loadClient(): Promise<void> {
 
@@ -238,6 +500,8 @@ export class ClientDetail implements OnInit {
 
       }
 
+      void this.loadSubscriptions();
+
     } catch (error) {
 
       console.error(error);
@@ -257,7 +521,213 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Modification
+  // ==========================================
+  // CHARGEMENT DES ABONNEMENTS
+  // ==========================================
+
+  async loadSubscriptions(): Promise<void> {
+
+    const client = this.client();
+
+    if (this.isNew || !client) {
+      return;
+    }
+
+    const version = ++this.subscriptionsLoadVersion;
+
+    this.subscriptionsLoading.set(true);
+    this.subscriptionsError.set(null);
+
+    try {
+
+      const subscriptions =
+        await this.subscriptionsService.findByClient(
+          client.id
+        );
+
+      if (
+        version !== this.subscriptionsLoadVersion ||
+        this.client()?.id !== client.id
+      ) {
+        return;
+      }
+
+      this.subscriptions.set(
+        subscriptions.filter(
+          subscription =>
+            subscription.clientId === client.id
+        )
+      );
+
+      this.subscriptionsLoaded.set(true);
+
+    } catch (error) {
+
+      if (version !== this.subscriptionsLoadVersion) {
+        return;
+      }
+
+      console.error(error);
+
+      this.subscriptionsError.set(
+        this.getErrorMessage(
+          error,
+          'Impossible de charger les abonnements du client.'
+        )
+      );
+
+    } finally {
+
+      if (version === this.subscriptionsLoadVersion) {
+
+        this.subscriptionsLoading.set(false);
+
+      }
+
+    }
+
+  }
+
+  // ==========================================
+  // INFORMATIONS DES ABONNEMENTS
+  // ==========================================
+
+  getSubscriptionMonthlyAmount(
+    subscription: Subscription
+  ): number {
+
+    return this.subscriptionsService.getMonthlyAmount(
+      subscription
+    );
+
+  }
+
+  getSubscriptionAnnualAmount(
+    subscription: Subscription
+  ): number {
+
+    return this.subscriptionsService.getAnnualAmount(
+      subscription
+    );
+
+  }
+
+  getBillingLabel(
+    subscription: Subscription
+  ): string {
+
+    switch (subscription.billingCycle) {
+
+      case 'Trimestriel':
+        return '/ trimestre';
+
+      case 'Annuel':
+        return '/ an';
+
+      default:
+        return '/ mois';
+
+    }
+
+  }
+
+  getSubscriptionStatusClass(
+    subscription: Subscription
+  ): string {
+
+    switch (subscription.status) {
+
+      case 'Actif':
+        return 'active';
+
+      case 'À venir':
+        return 'upcoming';
+
+      case 'Suspendu':
+        return 'suspended';
+
+      case 'Résilié':
+        return 'cancelled';
+
+    }
+
+  }
+
+  isSubscriptionExpired(
+    subscription: Subscription
+  ): boolean {
+
+    return (
+      subscription.status !== 'Résilié' &&
+      !!subscription.endDate &&
+      subscription.endDate < this.businessDate()
+    );
+
+  }
+
+  isSubscriptionOverdue(
+    subscription: Subscription
+  ): boolean {
+
+    const today = this.businessDate();
+
+    return (
+      this.client()?.status === 'Actif' &&
+      subscription.status === 'Actif' &&
+      subscription.startDate <= today &&
+      !this.isSubscriptionExpired(subscription) &&
+      !!subscription.nextBillingDate &&
+      subscription.nextBillingDate < today
+    );
+
+  }
+
+  // ==========================================
+  // NAVIGATION VERS LES ABONNEMENTS
+  // ==========================================
+
+  openSubscriptions(): void {
+
+    const client = this.client();
+
+    if (!client || !this.canViewSubscriptions()) {
+      return;
+    }
+
+    void this.router.navigate(
+      ['/subscriptions'],
+      {
+        queryParams: {
+          clientId: client.id
+        }
+      }
+    );
+
+  }
+
+  createSubscription(): void {
+
+    const client = this.client();
+
+    if (!client || !this.canCreateSubscription()) {
+      return;
+    }
+
+    void this.router.navigate(
+      ['/subscriptions'],
+      {
+        queryParams: {
+          clientId: client.id,
+          create: 'true'
+        }
+      }
+    );
+
+  }
+
+  // ==========================================
+  // MODIFICATION DU CLIENT
+  // ==========================================
 
   startEditing(): void {
 
@@ -280,7 +750,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Annulation
+  // ==========================================
+  // ANNULATION
+  // ==========================================
 
   cancelEditing(): void {
 
@@ -306,7 +778,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Enregistrement
+  // ==========================================
+  // ENREGISTREMENT
+  // ==========================================
 
   async save(): Promise<void> {
 
@@ -384,6 +858,8 @@ export class ClientDetail implements OnInit {
           'Les informations du client ont été enregistrées.'
         );
 
+        void this.loadSubscriptions();
+
       }
 
     } catch (error) {
@@ -405,7 +881,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Ouvrir la rédaction d'un e-mail
+  // ==========================================
+  // MESSAGERIE CLIENT
+  // ==========================================
 
   openMail(): void {
 
@@ -418,15 +896,11 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Fermer la rédaction
-
   closeMail(): void {
 
     this.mailOpen.set(false);
 
   }
-
-  // Après confirmation de l'envoi
 
   onMailSent(message: string): void {
 
@@ -443,7 +917,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Ouvrir la confirmation d'archivage
+  // ==========================================
+  // CONFIRMATION D'ARCHIVAGE
+  // ==========================================
 
   openArchive(): void {
 
@@ -456,8 +932,6 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Annuler l'archivage
-
   cancelArchive(): void {
 
     if (this.archiving()) return;
@@ -466,7 +940,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Archivage
+  // ==========================================
+  // ARCHIVAGE
+  // ==========================================
 
   async archiveClient(): Promise<void> {
 
@@ -499,6 +975,8 @@ export class ClientDetail implements OnInit {
         'Le client a été archivé.'
       );
 
+      void this.loadSubscriptions();
+
     } catch (error) {
 
       console.error(error);
@@ -518,7 +996,9 @@ export class ClientDetail implements OnInit {
 
   }
 
-  // Réactivation
+  // ==========================================
+  // RÉACTIVATION
+  // ==========================================
 
   async reactivateClient(): Promise<void> {
 
@@ -543,6 +1023,8 @@ export class ClientDetail implements OnInit {
       this.success.set(
         'Le client a été réactivé.'
       );
+
+      void this.loadSubscriptions();
 
     } catch (error) {
 

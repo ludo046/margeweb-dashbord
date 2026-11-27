@@ -117,8 +117,6 @@
 
             } @else {
 
-              <!-- Messagerie client -->
-
               <button
                 type="button"
                 class="secondary-btn"
@@ -134,8 +132,6 @@
 
               </button>
 
-              <!-- Archivage -->
-
               <button
                 type="button"
                 class="danger-outline-btn"
@@ -148,8 +144,6 @@
                 Archiver
 
               </button>
-
-              <!-- Modification -->
 
               <button
                 type="button"
@@ -178,32 +172,101 @@
           <div class="stat-card">
 
             <span>Chiffre d'affaires</span>
+
             <strong>—</strong>
-            <small>Module facturation à venir</small>
+
+            <small>
+              Module facturation à venir
+            </small>
 
           </div>
 
           <div class="stat-card">
 
             <span>Revenu mensuel</span>
-            <strong>—</strong>
-            <small>Module abonnements à venir</small>
+
+            <strong>
+
+              @if (subscriptionsLoading()) {
+
+                …
+
+              } @else if (subscriptionsReady()) {
+
+                {{ monthlyRevenue()
+                  | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+
+              } @else {
+
+                —
+
+              }
+
+            </strong>
+
+            <small>
+
+              @if (subscriptionsError()) {
+
+                Données indisponibles
+
+              } @else {
+
+                Revenu mensuel récurrent
+
+              }
+
+            </small>
 
           </div>
 
           <div class="stat-card">
 
             <span>Factures en attente</span>
+
             <strong>—</strong>
-            <small>Module facturation à venir</small>
+
+            <small>
+              Module facturation à venir
+            </small>
 
           </div>
 
           <div class="stat-card">
 
             <span>Abonnements actifs</span>
-            <strong>—</strong>
-            <small>Module abonnements à venir</small>
+
+            <strong>
+
+              @if (subscriptionsLoading()) {
+
+                …
+
+              } @else if (subscriptionsReady()) {
+
+                {{ activeSubscriptionCount() }}
+
+              } @else {
+
+                —
+
+              }
+
+            </strong>
+
+            <small>
+
+              @if (subscriptionsError()) {
+
+                Données indisponibles
+
+              } @else {
+
+                Générant des revenus
+
+              }
+
+            </small>
 
           </div>
 
@@ -211,7 +274,7 @@
 
       }
 
-      <!-- Formulaire -->
+      <!-- Formulaire client -->
 
       @if (editing() && !isArchived()) {
 
@@ -524,6 +587,17 @@
 
             Abonnements
 
+            @if (
+              subscriptionsReady() &&
+              subscriptions().length > 0
+            ) {
+
+              <span class="tab-count">
+                {{ totalSubscriptions() }}
+              </span>
+
+            }
+
           </button>
 
           <button
@@ -549,6 +623,8 @@
         <!-- Contenu des onglets -->
 
         @switch (activeTab()) {
+
+          <!-- INFORMATIONS -->
 
           @case ('information') {
 
@@ -735,6 +811,8 @@
 
           }
 
+          <!-- HISTORIQUE -->
+
           @case ('history') {
 
             @for (
@@ -751,27 +829,719 @@
 
           }
 
+          <!-- ABONNEMENTS -->
+
           @case ('subscriptions') {
 
-            <section class="panel empty-state">
+            <div class="client-subscriptions">
 
-              <div class="empty-icon">🔄</div>
+              <div class="subscriptions-header">
 
-              <h3>Abonnements</h3>
+                <div>
 
-              <p>
-                Retrouvez prochainement les abonnements,
-                les échéances et les revenus récurrents
-                de ce client.
-              </p>
+                  <span class="eyebrow">
+                    REVENUS RÉCURRENTS
+                  </span>
 
-              <span class="coming-soon">
-                Bientôt disponible
-              </span>
+                  <h3>Abonnements du client</h3>
 
-            </section>
+                  <p>
+                    Consultez les contrats, les revenus
+                    récurrents et les prochaines échéances.
+                  </p>
+
+                </div>
+
+                <div class="subscriptions-header-actions">
+
+                  <button
+                    type="button"
+                    class="secondary-btn"
+                    [disabled]="
+                      subscriptionsLoading() ||
+                      !canViewSubscriptions()
+                    "
+                    (click)="loadSubscriptions()">
+
+                    ↻ Actualiser
+
+                  </button>
+
+                  @if (!isArchived()) {
+
+                    <button
+                      type="button"
+                      class="primary-btn"
+                      [disabled]="!canCreateSubscription()"
+                      (click)="createSubscription()">
+
+                      + Nouvel abonnement
+
+                    </button>
+
+                  }
+
+                </div>
+
+              </div>
+
+              @if (isArchived()) {
+
+                <div class="subscription-info">
+
+                  <span aria-hidden="true">ⓘ</span>
+
+                  <div>
+
+                    <strong>Client archivé</strong>
+
+                    <p>
+                      Les abonnements sont conservés
+                      à titre d'historique.
+                      Aucune création ni modification
+                      n'est autorisée.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              } @else if (currentClient.status === 'Inactif') {
+
+                <div class="subscription-info">
+
+                  <span aria-hidden="true">ⓘ</span>
+
+                  <div>
+
+                    <strong>Client inactif</strong>
+
+                    <p>
+                      Aucun revenu récurrent n'est
+                      comptabilisé. Le client devra être
+                      réactivé avant l'activation ou
+                      la reprise d'un abonnement.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              }
+
+              @if (subscriptionsLoading()) {
+
+                <section class="panel empty-state">
+
+                  <div class="subscription-spinner"></div>
+
+                  <h3>Chargement des abonnements</h3>
+
+                  <p>
+                    Récupération des contrats du client...
+                  </p>
+
+                </section>
+
+              } @else if (subscriptionsError()) {
+
+                <section class="panel empty-state">
+
+                  <div class="empty-icon">!</div>
+
+                  <h3>
+                    Impossible de charger les abonnements
+                  </h3>
+
+                  <p role="alert">
+                    {{ subscriptionsError() }}
+                  </p>
+
+                  <button
+                    type="button"
+                    class="secondary-btn"
+                    [disabled]="!canViewSubscriptions()"
+                    (click)="loadSubscriptions()">
+
+                    Réessayer
+
+                  </button>
+
+                </section>
+
+              } @else if (subscriptionsReady()) {
+
+                <!-- Statistiques des abonnements -->
+
+                <div class="subscription-stats">
+
+                  <div class="subscription-stat">
+
+                    <div class="subscription-stat-top">
+
+                      <span>Abonnements actifs</span>
+
+                      <span class="subscription-stat-icon">
+                        ↻
+                      </span>
+
+                    </div>
+
+                    <strong>
+                      {{ activeSubscriptionCount() }}
+                    </strong>
+
+                    <small>
+                      Sur {{ totalSubscriptions() }}
+                      abonnement(s) enregistré(s)
+                    </small>
+
+                  </div>
+
+                  <div class="subscription-stat revenue-stat">
+
+                    <div class="subscription-stat-top">
+
+                      <span>Revenu mensuel</span>
+
+                      <span class="subscription-stat-icon">
+                        €
+                      </span>
+
+                    </div>
+
+                    <strong>
+                      {{ monthlyRevenue()
+                        | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+                    </strong>
+
+                    <small>
+                      Revenu mensuel récurrent
+                    </small>
+
+                  </div>
+
+                  <div class="subscription-stat">
+
+                    <div class="subscription-stat-top">
+
+                      <span>Revenu annuel</span>
+
+                      <span class="subscription-stat-icon">
+                        ↗
+                      </span>
+
+                    </div>
+
+                    <strong>
+                      {{ annualRevenue()
+                        | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+                    </strong>
+
+                    <small>
+                      Équivalent annuel récurrent
+                    </small>
+
+                  </div>
+
+                  <div class="subscription-stat">
+
+                    <div class="subscription-stat-top">
+
+                      <span>Prochaine échéance</span>
+
+                      <span class="subscription-stat-icon">
+                        ▦
+                      </span>
+
+                    </div>
+
+                    <strong class="next-billing-value">
+
+                      @if (nextBillingDate()) {
+
+                        {{ nextBillingDate()
+                          | date:'dd/MM/yyyy':'':'fr-FR' }}
+
+                      } @else {
+
+                        —
+
+                      }
+
+                    </strong>
+
+                    <small>
+                      {{ nextBillingDate()
+                        ? 'Prochaine date de facturation'
+                        : 'Aucune échéance à venir' }}
+                    </small>
+
+                  </div>
+
+                </div>
+
+                <!-- Alertes -->
+
+                @if (overdueSubscriptions().length > 0) {
+
+                  <div class="subscription-warning">
+
+                    <span
+                      class="subscription-warning-icon"
+                      aria-hidden="true">
+                      !
+                    </span>
+
+                    <div>
+
+                      <strong>
+                        {{ overdueSubscriptions().length }}
+                        échéance(s) dépassée(s)
+                      </strong>
+
+                      <p>
+                        Vérifiez les prochaines dates
+                        de facturation des abonnements
+                        concernés.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                }
+
+                @if (expiredSubscriptions().length > 0) {
+
+                  <div class="subscription-warning">
+
+                    <span
+                      class="subscription-warning-icon"
+                      aria-hidden="true">
+                      !
+                    </span>
+
+                    <div>
+
+                      <strong>
+                        {{ expiredSubscriptions().length }}
+                        abonnement(s) expiré(s)
+                      </strong>
+
+                      <p>
+                        Ces contrats ont dépassé leur
+                        date de fin et ne génèrent plus
+                        de revenus récurrents.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                }
+
+                <!-- Répartition par statut -->
+
+                <div class="subscription-status-summary">
+
+                  <div class="subscription-status-item">
+
+                    <span class="subscription-dot active"></span>
+
+                    <span>Actifs</span>
+
+                    <strong>
+                      {{ activeSubscriptions().length }}
+                    </strong>
+
+                  </div>
+
+                  <div class="subscription-status-item">
+
+                    <span class="subscription-dot upcoming"></span>
+
+                    <span>À venir</span>
+
+                    <strong>
+                      {{ upcomingSubscriptions().length }}
+                    </strong>
+
+                  </div>
+
+                  <div class="subscription-status-item">
+
+                    <span class="subscription-dot suspended"></span>
+
+                    <span>Suspendus</span>
+
+                    <strong>
+                      {{ suspendedSubscriptions().length }}
+                    </strong>
+
+                  </div>
+
+                  <div class="subscription-status-item">
+
+                    <span class="subscription-dot cancelled"></span>
+
+                    <span>Résiliés</span>
+
+                    <strong>
+                      {{ cancelledSubscriptions().length }}
+                    </strong>
+
+                  </div>
+
+                </div>
+
+                <!-- Liste des abonnements -->
+
+                <section class="panel subscriptions-list-panel">
+
+                  <div class="subscriptions-list-header">
+
+                    <div>
+
+                      <h3>Contrats et abonnements</h3>
+
+                      <p>
+                        {{ totalSubscriptions() }}
+                        abonnement(s) associé(s) à ce client
+                      </p>
+
+                    </div>
+
+                    @if (subscriptions().length > 0) {
+
+                      <button
+                        type="button"
+                        class="secondary-btn"
+                        [disabled]="!canViewSubscriptions()"
+                        (click)="openSubscriptions()">
+
+                        {{ isArchived()
+                          ? 'Consulter les abonnements'
+                          : 'Gérer les abonnements' }}
+
+                        →
+
+                      </button>
+
+                    }
+
+                  </div>
+
+                  @if (subscriptions().length === 0) {
+
+                    <div class="subscriptions-empty">
+
+                      <div class="subscription-empty-icon">
+                        ↻
+                      </div>
+
+                      <h3>Aucun abonnement</h3>
+
+                      @if (isArchived()) {
+
+                        <p>
+                          Aucun abonnement n'a été
+                          enregistré pour ce client.
+                        </p>
+
+                      } @else {
+
+                        <p>
+                          Créez un premier abonnement
+                          pour suivre les prestations
+                          et revenus récurrents de ce client.
+                        </p>
+
+                        <button
+                          type="button"
+                          class="primary-btn"
+                          [disabled]="!canCreateSubscription()"
+                          (click)="createSubscription()">
+
+                          + Créer un abonnement
+
+                        </button>
+
+                      }
+
+                    </div>
+
+                  } @else {
+
+                    <div class="client-subscriptions-list">
+
+                      @for (
+                        subscription of sortedSubscriptions();
+                        track subscription.id
+                      ) {
+
+                        <article
+                          class="client-subscription-card"
+                          [class.subscription-cancelled]="
+                            subscription.status === 'Résilié'
+                          ">
+
+                          <div class="subscription-card-header">
+
+                            <div class="subscription-identity">
+
+                              <div class="subscription-icon">
+                                ↻
+                              </div>
+
+                              <div class="subscription-identity-text">
+
+                                <h4>
+                                  {{ subscription.name }}
+                                </h4>
+
+                                @if (subscription.description) {
+
+                                  <p>
+                                    {{ subscription.description }}
+                                  </p>
+
+                                } @else {
+
+                                  <p>
+                                    Abonnement
+                                    {{ subscription.billingCycle.toLowerCase() }}
+                                  </p>
+
+                                }
+
+                              </div>
+
+                            </div>
+
+                            <div class="subscription-card-status">
+
+                              <span
+                                class="subscription-status-badge"
+                                [class]="getSubscriptionStatusClass(
+                                  subscription
+                                )">
+
+                                <span class="subscription-badge-dot"></span>
+
+                                {{ subscription.status }}
+
+                              </span>
+
+                              @if (
+                                isSubscriptionExpired(subscription)
+                              ) {
+
+                                <span class="subscription-expired-label">
+                                  Expiré
+                                </span>
+
+                              }
+
+                            </div>
+
+                          </div>
+
+                          <!-- Informations financières -->
+
+                          <div class="subscription-card-details">
+
+                            <div class="subscription-detail">
+
+                              <span>Tarif contractuel</span>
+
+                              <strong>
+
+                                {{ subscription.amount
+                                  | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+
+                                <small>
+                                  {{ getBillingLabel(subscription) }}
+                                </small>
+
+                              </strong>
+
+                            </div>
+
+                            <div class="subscription-detail">
+
+                              <span>Équivalent mensuel</span>
+
+                              <strong>
+
+                                {{ getSubscriptionMonthlyAmount(
+                                  subscription
+                                )
+                                  | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+
+                              </strong>
+
+                            </div>
+
+                            <div class="subscription-detail">
+
+                              <span>Date de début</span>
+
+                              <strong>
+
+                                {{ subscription.startDate
+                                  | date:'dd/MM/yyyy':'':'fr-FR' }}
+
+                              </strong>
+
+                            </div>
+
+                            <div class="subscription-detail">
+
+                              <span>Prochaine échéance</span>
+
+                              <strong
+                                [class.subscription-overdue]="
+                                  isSubscriptionOverdue(subscription)
+                                ">
+
+                                @if (subscription.nextBillingDate) {
+
+                                  {{ subscription.nextBillingDate
+                                    | date:'dd/MM/yyyy':'':'fr-FR' }}
+
+                                } @else {
+
+                                  —
+
+                                }
+
+                              </strong>
+
+                              @if (
+                                isSubscriptionOverdue(subscription)
+                              ) {
+
+                                <small class="subscription-overdue-label">
+                                  Échéance dépassée
+                                </small>
+
+                              }
+
+                            </div>
+
+                          </div>
+
+                          <!-- Informations complémentaires -->
+
+                          <div class="subscription-card-footer">
+
+                            <div class="subscription-contract-meta">
+
+                              @if (
+                                subscription.status === 'Résilié'
+                              ) {
+
+                                <span>
+
+                                  Résilié le
+
+                                  {{ subscription.cancelledAt
+                                    ? (subscription.cancelledAt
+                                      | date:'dd/MM/yyyy':'':'fr-FR')
+                                    : '—' }}
+
+                                </span>
+
+                              } @else {
+
+                                <span
+                                  class="subscription-renewal"
+                                  [class.renewal-enabled]="
+                                    subscription.autoRenew
+                                  ">
+
+                                  {{ subscription.autoRenew
+                                    ? '↻ Renouvellement automatique'
+                                    : 'Renouvellement manuel' }}
+
+                                </span>
+
+                              }
+
+                              @if (subscription.endDate) {
+
+                                <span>
+
+                                  Fin :
+                                  {{ subscription.endDate
+                                    | date:'dd/MM/yyyy':'':'fr-FR' }}
+
+                                </span>
+
+                              }
+
+                            </div>
+
+                            <span class="subscription-annual-value">
+
+                              {{ getSubscriptionAnnualAmount(
+                                subscription
+                              )
+                                | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+
+                              / an
+
+                            </span>
+
+                          </div>
+
+                          @if (subscription.notes) {
+
+                            <details class="subscription-notes">
+
+                              <summary>
+                                Notes internes
+                              </summary>
+
+                              <p>
+                                {{ subscription.notes }}
+                              </p>
+
+                            </details>
+
+                          }
+
+                        </article>
+
+                      }
+
+                    </div>
+
+                  }
+
+                </section>
+
+                @if (subscriptions().length > 0) {
+
+                  <p class="subscriptions-disclaimer">
+
+                    Les revenus récurrents sont calculés
+                    à partir des abonnements actifs et valides.
+                    Les montants affichés ne correspondent pas
+                    nécessairement à des paiements encaissés.
+
+                  </p>
+
+                }
+
+              }
+
+            </div>
 
           }
+
+          <!-- DEVIS -->
 
           @case ('quotes') {
 
@@ -793,6 +1563,8 @@
             </section>
 
           }
+
+          <!-- FACTURES -->
 
           @case ('invoices') {
 
@@ -878,6 +1650,13 @@
           modification ni nouvelle interaction ne
           pourra être effectuée depuis cette fiche
           avant sa réactivation.
+
+        </p>
+
+        <p>
+
+          Tous les abonnements du client doivent
+          être résiliés avant son archivage.
 
         </p>
 

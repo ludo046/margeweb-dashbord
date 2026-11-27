@@ -65,7 +65,7 @@ export const routes: Routes = [
   {
     path: 'subscriptions',
     loadComponent: () =>
-      import('./pages/subscriptions/subscriptions')
+      import('./features/subscriptions/subscriptions')
         .then(m => m.Subscriptions)
   },
   {

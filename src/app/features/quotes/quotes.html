@@ -1,0 +1,1190 @@
+<div class="quotes-page">
+
+  <!-- EN-TÊTE -->
+
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">GESTION COMMERCIALE</span>
+
+      <h1>Devis</h1>
+
+      <p>
+        Gérez vos propositions commerciales,
+        vos prestations et vos contrats de maintenance.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <button
+        type="button"
+        class="secondary-btn"
+        (click)="refresh()"
+        [disabled]="loading() || statsLoading() || processingAction()"
+      >
+        ↻ Actualiser
+      </button>
+
+      <button
+        type="button"
+        class="primary-btn"
+        (click)="createQuote()"
+        [disabled]="processingAction() || !!confirmation()"
+      >
+        <span class="button-icon">+</span>
+        Nouveau devis
+      </button>
+    </div>
+  </header>
+
+  <!-- MESSAGES -->
+
+  @if (successMessage()) {
+    <div class="success-message" role="status">
+      <span>{{ successMessage() }}</span>
+
+      <button
+        type="button"
+        class="message-close"
+        aria-label="Fermer le message"
+        (click)="successMessage.set('')"
+      >
+        ×
+      </button>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="error-message" role="alert">
+      {{ error() }}
+    </div>
+  }
+
+  @if (statsError()) {
+    <div class="error-message" role="alert">
+      {{ statsError() }}
+    </div>
+  }
+
+  <!-- INDICATEURS FINANCIERS -->
+
+  <section class="financial-stats">
+
+    @for (card of financialCards(); track card.label) {
+
+      <article
+        class="stat-card"
+        [class.revenue-card]="card.theme === 'revenue-card'"
+      >
+        <div class="stat-top">
+          <span class="stat-label">
+            {{ card.label }}
+          </span>
+
+          <span
+            class="stat-icon"
+            [class]="card.iconTheme"
+          >
+            {{ card.icon }}
+          </span>
+        </div>
+
+        <div class="stat-value">
+          @if (statsLoading()) {
+            <span class="stat-placeholder">…</span>
+          } @else {
+            {{ card.value }}
+          }
+        </div>
+
+        <span class="stat-description">
+          {{ card.description }}
+        </span>
+      </article>
+
+    }
+
+  </section>
+
+  <!-- MAINTENANCE -->
+
+  @if (stats(); as data) {
+
+    <section class="recurring-overview">
+
+      <article class="recurring-card">
+        <div class="recurring-icon">↻</div>
+
+        <div class="recurring-information">
+          <span>Maintenance acceptée</span>
+
+          <strong>
+            {{ formatAmount(data.acceptedRecurringMonthlyCents) }}
+            <small>/ mois</small>
+          </strong>
+
+          <p>
+            {{ formatAmount(data.acceptedRecurringAnnualCents) }}
+            annualisés
+          </p>
+        </div>
+      </article>
+
+      <article class="recurring-card">
+        <div class="recurring-icon pending-icon">◷</div>
+
+        <div class="recurring-information">
+          <span>Maintenance en attente</span>
+
+          <strong>
+            {{ formatAmount(data.pendingRecurringMonthlyCents) }}
+            <small>/ mois</small>
+          </strong>
+
+          <p>
+            {{ formatAmount(data.pendingRecurringAnnualCents) }}
+            annualisés
+          </p>
+        </div>
+      </article>
+
+    </section>
+
+    <p class="recurring-disclaimer">
+      Les montants récurrents des devis représentent
+      des propositions commerciales et non des abonnements actifs.
+    </p>
+
+    <!-- ALERTES -->
+
+    @if (data.overdueQuotes > 0) {
+
+      <div class="warning-message">
+        <span class="warning-icon">!</span>
+
+        <div class="warning-content">
+          <strong>
+            {{ data.overdueQuotes }}
+            devis dont la validité est dépassée
+          </strong>
+
+          <p>
+            {{ formatAmount(data.overdueAmountCents) }}
+            de propositions à vérifier.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="text-btn"
+          (click)="filterOverdue()"
+        >
+          Voir les devis
+        </button>
+      </div>
+
+    }
+
+    @if (data.expiringSoonQuotes > 0) {
+
+      <div class="warning-message">
+        <span class="warning-icon">◷</span>
+
+        <div class="warning-content">
+          <strong>
+            {{ data.expiringSoonQuotes }}
+            devis bientôt à expiration
+          </strong>
+
+          <p>
+            Pensez à relancer les destinataires concernés.
+          </p>
+        </div>
+      </div>
+
+    }
+
+  }
+
+  <!-- RÉPARTITION PAR STATUT -->
+
+  <section class="status-overview">
+
+    <button
+      type="button"
+      class="status-card"
+      [class.selected]="statusFilter() === 'Tous'"
+      [attr.aria-pressed]="statusFilter() === 'Tous'"
+      (click)="filterByStatus('Tous')"
+    >
+      <span class="status-dot all-dot"></span>
+      <span class="status-card-label">Tous</span>
+      <strong>{{ quotes().length }}</strong>
+    </button>
+
+    @for (status of statuses; track status) {
+
+      <button
+        type="button"
+        class="status-card"
+        [class.selected]="statusFilter() === status"
+        [attr.aria-pressed]="statusFilter() === status"
+        (click)="filterByStatus(status)"
+      >
+        <span
+          class="status-dot"
+          [style.background]="getStatusColor(status)"
+        ></span>
+
+        <span class="status-card-label">
+          {{ status }}
+        </span>
+
+        <strong>
+          {{ statusCounts()[status] }}
+        </strong>
+      </button>
+
+    }
+
+  </section>
+
+  <!-- LISTE DES DEVIS -->
+
+  <section class="quotes-panel">
+
+    <div class="panel-header">
+      <div>
+        <h2>Liste des devis</h2>
+
+        <p>
+          {{ filteredQuotes().length }}
+          devis affiché(s)
+        </p>
+      </div>
+
+      @if (hasFilters()) {
+        <button
+          type="button"
+          class="text-btn"
+          (click)="resetFilters()"
+        >
+          Réinitialiser les filtres
+        </button>
+      }
+    </div>
+
+    <!-- FILTRES -->
+
+    <div class="filters">
+
+      <div class="search-field">
+        <span class="search-icon">⌕</span>
+
+        <input
+          type="search"
+          placeholder="Rechercher un devis..."
+          aria-label="Rechercher un devis"
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)"
+        />
+      </div>
+
+      <select
+        aria-label="Filtrer par destinataire"
+        [ngModel]="recipientFilter()"
+        (ngModelChange)="recipientFilter.set($event)"
+      >
+        <option value="Tous">Tous les destinataires</option>
+        <option value="Prospects">Prospects</option>
+        <option value="Clients">Clients</option>
+      </select>
+
+      <select
+        aria-label="Filtrer par statut"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($event)"
+      >
+        <option value="Tous">Tous les statuts</option>
+
+        @for (status of statuses; track status) {
+          <option [value]="status">
+            {{ status }}
+          </option>
+        }
+      </select>
+
+      <select
+        aria-label="Filtrer par validité"
+        [ngModel]="validityFilter()"
+        (ngModelChange)="validityFilter.set($event)"
+      >
+        <option value="Tous">Toutes les validités</option>
+        <option value="En retard">Validité dépassée</option>
+      </select>
+
+    </div>
+
+    <!-- CHARGEMENT -->
+
+    @if (loading()) {
+
+      <div class="empty-state" role="status">
+        <div class="loading-spinner"></div>
+        <h3>Chargement des devis</h3>
+        <p>Veuillez patienter...</p>
+      </div>
+
+    } @else if (error()) {
+
+      <div class="empty-state">
+        <div class="empty-icon">!</div>
+        <h3>Impossible de charger les devis</h3>
+        <p>{{ error() }}</p>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          (click)="refresh()"
+        >
+          Réessayer
+        </button>
+      </div>
+
+    } @else if (filteredQuotes().length === 0) {
+
+      <div class="empty-state">
+        <div class="empty-icon">▤</div>
+
+        @if (hasFilters()) {
+
+          <h3>Aucun résultat</h3>
+
+          <p>
+            Aucun devis ne correspond à vos filtres.
+          </p>
+
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="resetFilters()"
+          >
+            Réinitialiser les filtres
+          </button>
+
+        } @else {
+
+          <h3>Aucun devis pour le moment</h3>
+
+          <p>
+            Vos futures propositions commerciales
+            apparaîtront ici.
+          </p>
+
+          <button
+            type="button"
+            class="primary-btn"
+            (click)="createQuote()"
+            [disabled]="processingAction() || !!confirmation()"
+          >
+            <span class="button-icon">+</span>
+            Créer mon premier devis
+          </button>
+
+        }
+
+      </div>
+
+    } @else {
+
+      <!-- TABLEAU -->
+
+      <div class="table-wrapper">
+
+        <table class="quotes-table">
+
+          <thead>
+            <tr>
+              <th>Devis</th>
+              <th>Destinataire</th>
+              <th>Montant TTC ponctuel</th>
+              <th>Maintenance</th>
+              <th>Validité</th>
+              <th>Statut</th>
+              <th class="actions-heading">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            @for (quote of filteredQuotes(); track quote.id) {
+
+              <tr
+                [class.closed-row]="
+                  quote.status === 'Annulé' ||
+                  quote.status === 'Refusé' ||
+                  quote.status === 'Expiré'
+                "
+              >
+
+                <td>
+                  <button
+                    type="button"
+                    class="quote-name"
+                    (click)="openPreview(quote)"
+                  >
+                    {{ getQuoteLabel(quote) }}
+                  </button>
+
+                  <div
+                    class="quote-description"
+                    [title]="quote.title"
+                  >
+                    {{ quote.title }}
+                  </div>
+
+                  <div class="cell-meta">
+                    Créé le
+                    {{ quote.createdAt | date:'dd/MM/yyyy' }}
+                  </div>
+                </td>
+
+                <td>
+
+                  <div class="recipient">
+
+                    <span class="client-avatar">
+                      {{ getRecipientInitials(quote) }}
+                    </span>
+
+                    <div class="client-information">
+
+                      @if (quote.clientId !== null) {
+
+                        <a
+                          [routerLink]="['/clients', quote.clientId]"
+                        >
+                          {{ getRecipientLabel(quote) }}
+                        </a>
+
+                        <small>
+                          @if (quote.client?.status === 'Archivé') {
+                            Client archivé
+                          } @else {
+                            Client
+                          }
+                        </small>
+
+                      } @else if (quote.prospectId !== null) {
+
+                        <a
+                          [routerLink]="['/prospects', quote.prospectId]"
+                        >
+                          {{ getRecipientLabel(quote) }}
+                        </a>
+
+                        <small>Prospect</small>
+
+                      } @else {
+
+                        <strong>
+                          {{ getRecipientLabel(quote) }}
+                        </strong>
+
+                      }
+
+                    </div>
+                  </div>
+
+                </td>
+
+                <td>
+                  <div class="price">
+                    {{ formatAmount(quote.totalIncludingTaxCents) }}
+                  </div>
+
+                  @if (quote.discountCents > 0) {
+                    <div class="cell-meta discount-label">
+                      −{{ formatAmount(quote.discountCents) }}
+                      de remise
+                    </div>
+                  }
+                </td>
+
+                <td>
+                  @if (quote.recurring.monthlyCents > 0) {
+
+                    <div class="monthly-price">
+                      {{ formatAmount(quote.recurring.monthlyCents) }}
+                    </div>
+
+                    <div class="cell-meta">
+                      Équiv. mensuel
+                    </div>
+
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+
+                <td>
+                  @if (quote.validUntil) {
+
+                    <div
+                      class="billing-date"
+                      [class.overdue]="isOverdue(quote)"
+                    >
+                      {{ quote.validUntil | date:'dd/MM/yyyy' }}
+                    </div>
+
+                    @if (isOverdue(quote)) {
+                      <span class="overdue-label">
+                        Validité dépassée
+                      </span>
+                    }
+
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+
+                <td>
+                  <span
+                    class="status-badge"
+                    [class]="getStatusClass(quote.status)"
+                  >
+                    <span class="badge-dot"></span>
+                    {{ quote.status }}
+                  </span>
+                </td>
+
+                <td>
+                  <div class="row-actions">
+
+                    <button
+                      type="button"
+                      class="action-btn edit-btn"
+                      (click)="openPreview(quote)"
+                      [disabled]="processingAction()"
+                    >
+                      Consulter
+                    </button>
+
+                    @if (canEditQuote(quote)) {
+                      <button
+                        type="button"
+                        class="action-btn edit-btn"
+                        (click)="editQuote(quote)"
+                        title="Modifier le brouillon"
+                      >
+                        Modifier
+                      </button>
+                    }
+
+                    @if (canPerform(quote, 'duplicate')) {
+                      <button
+                        type="button"
+                        class="action-btn edit-btn"
+                        (click)="requestAction(quote, 'duplicate')"
+                      >
+                        Dupliquer
+                      </button>
+                    }
+
+                  </div>
+                </td>
+
+              </tr>
+
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    }
+
+  </section>
+
+  <!-- STATISTIQUES COMPLÉMENTAIRES -->
+
+  @if (stats(); as data) {
+
+    <section class="secondary-stats">
+
+      <article class="summary-card">
+        <h3>Montant moyen accepté</h3>
+
+        <div class="summary-value">
+          @if (data.averageAcceptedAmountCents !== null) {
+            {{ formatAmount(data.averageAcceptedAmountCents) }}
+          } @else {
+            —
+          }
+        </div>
+
+        <p>
+          Montant moyen des prestations ponctuelles
+          pour les devis acceptés.
+        </p>
+
+        <div class="summary-divider"></div>
+
+        <h3>Montant refusé</h3>
+
+        <div class="summary-value refused-value">
+          {{ formatAmount(data.refusedAmountCents) }}
+        </div>
+
+        <p>
+          Total des propositions commerciales refusées.
+        </p>
+      </article>
+
+      <article class="summary-card">
+
+        <h3>Répartition des devis</h3>
+
+        <div class="status-distribution">
+
+          @for (status of statuses; track status) {
+
+            <div class="distribution-item">
+              <span>{{ status }}</span>
+
+              <div class="distribution-track">
+                <div
+                  class="distribution-fill"
+                  [style.width.%]="getDistributionWidth(status)"
+                  [style.background]="getStatusColor(status)"
+                ></div>
+              </div>
+
+              <strong>
+                {{ data.byStatus[status].count }}
+              </strong>
+            </div>
+
+          }
+
+        </div>
+
+      </article>
+
+    </section>
+
+  }
+
+  <!-- MODAL DE CONSULTATION -->
+
+  @if (selectedQuote(); as quote) {
+
+    <div class="modal-overlay">
+
+      <section
+        class="modal preview-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="preview-title"
+        (keydown.escape)="closePreview()"
+      >
+
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow">PROPOSITION COMMERCIALE</span>
+
+            <h2 id="preview-title">
+              {{ getQuoteLabel(quote) }}
+            </h2>
+
+            <p>{{ quote.title }}</p>
+          </div>
+
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Fermer"
+            (click)="closePreview()"
+            [disabled]="processingAction()"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="modal-body">
+
+          <div class="preview-status">
+
+            <span
+              class="status-badge"
+              [class]="getStatusClass(quote.status)"
+            >
+              <span class="badge-dot"></span>
+              {{ quote.status }}
+            </span>
+
+            @if (quote.issueDate) {
+              <span class="muted">
+                Émis le
+                {{ quote.issueDate | date:'dd/MM/yyyy' }}
+              </span>
+            }
+
+            @if (quote.validUntil) {
+              <span class="muted">
+                Valable jusqu’au
+                {{ quote.validUntil | date:'dd/MM/yyyy' }}
+              </span>
+            }
+
+          </div>
+
+          <section class="preview-recipient">
+
+            <h3>Destinataire</h3>
+
+            <strong>{{ getRecipientLabel(quote) }}</strong>
+
+            @if (quote.recipientContactName) {
+              <span>{{ quote.recipientContactName }}</span>
+            }
+
+            @if (quote.recipientAddress) {
+              <span>{{ quote.recipientAddress }}</span>
+            }
+
+            @if (quote.recipientPostalCode || quote.recipientCity) {
+              <span>
+                {{ quote.recipientPostalCode }}
+                {{ quote.recipientCity }}
+              </span>
+            }
+
+            @if (quote.recipientCountry) {
+              <span>{{ quote.recipientCountry }}</span>
+            }
+
+            @if (quote.recipientEmail) {
+              <span>{{ quote.recipientEmail }}</span>
+            }
+
+            @if (quote.recipientPhone) {
+              <span>{{ quote.recipientPhone }}</span>
+            }
+
+            @if (quote.recipientSiret) {
+              <span>SIRET : {{ quote.recipientSiret }}</span>
+            }
+
+          </section>
+
+          <!-- PRESTATIONS -->
+
+          <section class="preview-section">
+
+            <h3>Prestations</h3>
+
+            <div class="preview-items">
+
+              @for (item of quote.items; track item.id) {
+
+                <article class="preview-item">
+
+                  <div class="item-information">
+
+                    <span
+                      class="item-type"
+                      [class.recurring-type]="item.type === 'Récurrente'"
+                    >
+                      {{ item.type }}
+                    </span>
+
+                    <strong>{{ item.name }}</strong>
+
+                    @if (item.description) {
+                      <p>{{ item.description }}</p>
+                    }
+
+                    <small>
+                      {{ item.quantity }} ×
+                      {{ formatAmount(item.unitPriceCents) }}
+                    </small>
+
+                    @if (item.discountCents > 0) {
+                      <small class="discount-label">
+                        Remise :
+                        {{ formatAmount(item.discountCents) }}
+                      </small>
+                    }
+
+                    @if (item.type === 'Récurrente') {
+
+                      @if (item.commitmentMonths) {
+                        <small>
+                          Engagement :
+                          {{ item.commitmentMonths }} mois
+                        </small>
+                      }
+
+                      <small>
+                        Renouvellement automatique :
+                        {{ item.autoRenew ? 'Oui' : 'Non' }}
+                      </small>
+
+                    }
+
+                  </div>
+
+                  <div class="item-amount">
+
+                    <strong>
+                      {{ formatAmount(item.totalCents) }}
+                    </strong>
+
+                    @if (item.type === 'Récurrente') {
+                      <small>
+                        {{ getBillingLabel(item.billingCycle) }}
+                      </small>
+                    }
+
+                  </div>
+
+                </article>
+
+              } @empty {
+
+                <p class="muted">
+                  Aucune prestation renseignée.
+                </p>
+
+              }
+
+            </div>
+
+          </section>
+
+          <!-- TOTAUX -->
+
+          <section class="quote-totals">
+
+            <div class="total-row">
+              <span>Sous-total ponctuel</span>
+              <strong>{{ formatAmount(quote.subtotalCents) }}</strong>
+            </div>
+
+            @if (quote.discountCents > 0) {
+              <div class="total-row discount-label">
+                <span>Remises</span>
+                <strong>−{{ formatAmount(quote.discountCents) }}</strong>
+              </div>
+            }
+
+            <div class="total-row">
+              <span>Total HT</span>
+              <strong>
+                {{ formatAmount(quote.totalExcludingTaxCents) }}
+              </strong>
+            </div>
+
+            <div class="total-row">
+              <span>TVA</span>
+              <strong>{{ formatAmount(quote.taxCents) }}</strong>
+            </div>
+
+            <div class="total-row grand-total">
+              <span>Total TTC ponctuel</span>
+              <strong>
+                {{ formatAmount(quote.totalIncludingTaxCents) }}
+              </strong>
+            </div>
+
+            @if (quote.taxMention) {
+              <small>{{ quote.taxMention }}</small>
+            }
+
+          </section>
+
+          @if (quote.recurring.annualCents > 0) {
+
+            <section class="revenue-preview">
+
+              <div>
+                <span>Équivalent mensuel</span>
+
+                <strong>
+                  {{ formatAmount(quote.recurring.monthlyCents) }}
+                </strong>
+              </div>
+
+              <div>
+                <span>Équivalent annuel</span>
+
+                <strong>
+                  {{ formatAmount(quote.recurring.annualCents) }}
+                </strong>
+              </div>
+
+            </section>
+
+          }
+
+          <!-- CONDITIONS COMMERCIALES -->
+
+          @if (quote.paymentTerms) {
+            <section class="preview-section">
+              <h3>Conditions de paiement</h3>
+              <p>{{ quote.paymentTerms }}</p>
+            </section>
+          }
+
+          @if (quote.deliveryTerms) {
+            <section class="preview-section">
+              <h3>Délais de livraison</h3>
+              <p>{{ quote.deliveryTerms }}</p>
+            </section>
+          }
+
+          @if (quote.termsAndConditions) {
+            <section class="preview-section">
+              <h3>Conditions générales</h3>
+              <p>{{ quote.termsAndConditions }}</p>
+            </section>
+          }
+
+          @if (quote.publicNotes) {
+            <section class="preview-section">
+              <h3>Notes commerciales</h3>
+              <p>{{ quote.publicNotes }}</p>
+            </section>
+          }
+
+          @if (quote.internalNotes) {
+            <section class="internal-notes">
+              <h3>Notes internes · Privées</h3>
+              <p>{{ quote.internalNotes }}</p>
+            </section>
+          }
+
+          @if (quote.refusalReason) {
+            <section class="preview-section">
+              <h3>Motif du refus</h3>
+              <p>{{ quote.refusalReason }}</p>
+            </section>
+          }
+
+          @if (quote.cancellationReason) {
+            <section class="preview-section">
+              <h3>Motif de l’annulation</h3>
+              <p>{{ quote.cancellationReason }}</p>
+            </section>
+          }
+
+        </div>
+
+        <!-- ACTIONS -->
+
+        <footer class="modal-footer">
+
+          @if (canPerform(quote, 'remove')) {
+            <button
+              type="button"
+              class="danger-btn"
+              (click)="requestAction(quote, 'remove')"
+            >
+              Supprimer
+            </button>
+          }
+
+          @if (canPerform(quote, 'duplicate')) {
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="requestAction(quote, 'duplicate')"
+            >
+              Dupliquer
+            </button>
+          }
+
+          @if (canEditQuote(quote)) {
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="editQuote(quote)"
+            >
+              Modifier le brouillon
+            </button>
+          }
+
+          @if (canPerform(quote, 'cancel')) {
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="requestAction(quote, 'cancel')"
+            >
+              Annuler le devis
+            </button>
+          }
+
+          @if (canPerform(quote, 'refuse')) {
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="requestAction(quote, 'refuse')"
+            >
+              Refuser
+            </button>
+          }
+
+          @if (canPerform(quote, 'expire')) {
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="requestAction(quote, 'expire')"
+            >
+              Expirer
+            </button>
+          }
+
+          @if (canPerform(quote, 'accept')) {
+            <button
+              type="button"
+              class="primary-btn"
+              (click)="requestAction(quote, 'accept')"
+            >
+              Accepter
+            </button>
+          }
+
+          @if (canPerform(quote, 'issue')) {
+            <button
+              type="button"
+              class="primary-btn"
+              (click)="requestAction(quote, 'issue')"
+            >
+              Émettre le devis
+            </button>
+          }
+
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="closePreview()"
+            [disabled]="processingAction()"
+          >
+            Fermer
+          </button>
+
+        </footer>
+
+      </section>
+
+    </div>
+
+  }
+
+  <!-- CONFIRMATION -->
+
+  @if (confirmation(); as action) {
+
+    <div class="modal-overlay confirmation-overlay">
+
+      <section
+        class="modal confirmation-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmation-title"
+        (keydown.escape)="closeConfirmation()"
+      >
+
+        <div
+          class="confirmation-icon"
+          [class.danger-icon]="action.dangerous"
+        >
+          {{ action.dangerous ? '!' : '✓' }}
+        </div>
+
+        <h2 id="confirmation-title">
+          {{ action.title }}
+        </h2>
+
+        <p class="confirmation-message">
+          {{ action.message }}
+        </p>
+
+        <div class="confirmation-summary">
+
+          <strong>{{ getQuoteLabel(action.quote) }}</strong>
+
+          <span>{{ getRecipientLabel(action.quote) }}</span>
+
+          <div class="confirmation-price">
+            {{ formatAmount(action.quote.totalIncludingTaxCents) }}
+          </div>
+
+        </div>
+
+        @if (
+          action.action === 'cancel' ||
+          action.action === 'refuse'
+        ) {
+
+          <div class="reason-field">
+
+            <label for="action-reason">
+              Motif
+              {{ action.action === 'cancel' ? '(obligatoire)' : '(facultatif)' }}
+            </label>
+
+            <textarea
+              id="action-reason"
+              rows="4"
+              maxlength="5000"
+              placeholder="Renseigner le motif..."
+              [(ngModel)]="reason"
+              [disabled]="processingAction()"
+            ></textarea>
+
+          </div>
+
+        }
+
+        @if (actionError()) {
+          <div class="error-message" role="alert">
+            {{ actionError() }}
+          </div>
+        }
+
+        <div class="confirmation-actions">
+
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="closeConfirmation()"
+            [disabled]="processingAction()"
+          >
+            Retour
+          </button>
+
+          <button
+            type="button"
+            [class]="action.dangerous ? 'danger-btn' : 'primary-btn'"
+            (click)="confirmAction()"
+            [disabled]="processingAction()"
+          >
+            {{
+              processingAction()
+                ? 'Traitement...'
+                : action.buttonLabel
+            }}
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  }
+
+</div>

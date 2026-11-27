@@ -1,0 +1,2179 @@
+<div class="quote-detail-page">
+
+  <!-- NAVIGATION -->
+
+  <div class="breadcrumb">
+
+    <button
+      type="button"
+      class="back-button"
+      [disabled]="processingAction()"
+      (click)="goBack()"
+    >
+      ← Retour aux devis
+    </button>
+
+    <span class="breadcrumb-separator">/</span>
+
+    <span>{{ quoteLabel() }}</span>
+
+  </div>
+
+
+  <!-- CHARGEMENT -->
+
+  @if (loading()) {
+
+    <div class="loading-state">
+
+      <div class="spinner"></div>
+
+      <h3>Chargement du devis</h3>
+
+      <p>Récupération des informations...</p>
+
+    </div>
+
+  }
+
+
+  <!-- ERREUR DE CHARGEMENT -->
+
+  @else if (error()) {
+
+    <div class="error-state">
+
+      <div class="state-icon">⚠️</div>
+
+      <h2>Impossible de charger le devis</h2>
+
+      <p>{{ error() }}</p>
+
+      <div class="state-actions">
+
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="goBack()"
+        >
+          Retour aux devis
+        </button>
+
+        @if (quoteId() !== null) {
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="retry()"
+          >
+            Réessayer
+          </button>
+
+        }
+
+      </div>
+
+    </div>
+
+  }
+
+
+  <!-- MESSAGES -->
+
+  @if (successMessage()) {
+
+    <div class="alert alert-success" role="status">
+
+      <span class="alert-icon">✓</span>
+
+      <span>{{ successMessage() }}</span>
+
+      <button
+        type="button"
+        class="alert-close"
+        aria-label="Fermer le message"
+        (click)="dismissSuccess()"
+      >
+        ×
+      </button>
+
+    </div>
+
+  }
+
+
+  @if (actionError() && !confirmation()) {
+
+    <div class="alert alert-error" role="alert">
+
+      <span class="alert-icon">⚠</span>
+
+      <span>{{ actionError() }}</span>
+
+      <button
+        type="button"
+        class="alert-close"
+        aria-label="Fermer le message"
+        (click)="dismissActionError()"
+      >
+        ×
+      </button>
+
+    </div>
+
+  }
+
+
+  <!-- CONTENU DU DEVIS -->
+
+  @if (!loading() && !error()) {
+
+    @if (quote(); as q) {
+
+      <!-- EN-TÊTE -->
+
+      <header class="page-header">
+
+        <div class="header-content">
+
+          <div class="header-eyebrow">
+            GESTION COMMERCIALE
+          </div>
+
+          <div class="header-title">
+
+            <h1>{{ quoteLabel() }}</h1>
+
+            <span
+              class="status-badge"
+              [ngClass]="getStatusClass(q.status)"
+            >
+
+              <span class="status-dot"></span>
+
+              {{ q.status }}
+
+            </span>
+
+          </div>
+
+          <p class="quote-title">
+            {{ q.title }}
+          </p>
+
+          <p class="header-description">
+            {{ getStatusDescription(q.status) }}
+          </p>
+
+        </div>
+
+        <div class="header-actions">
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="actionsDisabled()"
+            (click)="refresh()"
+          >
+            ↻ Actualiser
+          </button>
+
+          @if (canEdit()) {
+
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="actionsDisabled()"
+              (click)="editQuote()"
+            >
+              ✎ Modifier le devis
+            </button>
+
+          }
+
+        </div>
+
+      </header>
+
+
+      <!-- ALERTES -->
+
+      @if (isDraft()) {
+
+        <div class="alert alert-info">
+
+          <span class="alert-icon">ℹ</span>
+
+          <div>
+
+            <strong>Devis en préparation</strong>
+
+            <p>
+              Ce brouillon ne possède pas encore de
+              numéro définitif et n'a pas été envoyé.
+            </p>
+
+          </div>
+
+        </div>
+
+      }
+
+
+      @if (isOverdue()) {
+
+        <div class="alert alert-warning">
+
+          <span class="alert-icon">⏳</span>
+
+          <div>
+
+            <strong>Date de validité dépassée</strong>
+
+            <p>
+              Ce devis était valable jusqu'au
+              {{ formatDate(q.validUntil) }}.
+            </p>
+
+          </div>
+
+        </div>
+
+      }
+
+
+      @if (isArchivedClient()) {
+
+        <div class="alert alert-warning">
+
+          <span class="alert-icon">⚠</span>
+
+          <div>
+
+            <strong>Client archivé</strong>
+
+            <p>
+              Certaines actions sont indisponibles
+              tant que ce client est archivé.
+            </p>
+
+          </div>
+
+        </div>
+
+      }
+
+
+      <!-- INDICATEURS -->
+
+      <div class="overview-grid">
+
+        <div class="overview-card">
+
+          <span class="overview-label">
+            Montant ponctuel TTC
+          </span>
+
+          <strong class="overview-value">
+
+            {{ formatAmount(q.totalIncludingTaxCents) }}
+
+          </strong>
+
+          <span class="overview-caption">
+            Hors prestations récurrentes
+          </span>
+
+        </div>
+
+
+        <div class="overview-card recurring-overview">
+
+          <span class="overview-label">
+            Équivalent mensuel
+          </span>
+
+          <strong class="overview-value">
+
+            {{ formatAmount(recurringMonthlyCents()) }}
+
+            <small>/ mois</small>
+
+          </strong>
+
+          <span class="overview-caption">
+            Prestations récurrentes proposées
+          </span>
+
+        </div>
+
+
+        <div class="overview-card">
+
+          <span class="overview-label">
+            Équivalent annuel
+          </span>
+
+          <strong class="overview-value">
+
+            {{ formatAmount(recurringAnnualCents()) }}
+
+          </strong>
+
+          <span class="overview-caption">
+            Hors prestations ponctuelles
+          </span>
+
+        </div>
+
+
+        <div class="overview-card">
+
+          <span class="overview-label">
+            Date de validité
+          </span>
+
+          <strong
+            class="overview-date"
+            [class.overdue-text]="isOverdue()"
+          >
+
+            {{ formatDate(q.validUntil) }}
+
+          </strong>
+
+          <span class="overview-caption">
+
+            @if (q.issueDate) {
+
+              Émis le {{ formatDate(q.issueDate) }}
+
+            } @else {
+
+              Devis non émis
+
+            }
+
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <!-- DISPOSITION PRINCIPALE -->
+
+      <div class="detail-layout">
+
+        <main class="detail-main">
+
+
+          <!-- DESTINATAIRE -->
+
+          <section class="detail-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Destinataire</h2>
+
+                <p>
+                  Informations commerciales et
+                  coordonnées du devis.
+                </p>
+
+              </div>
+
+              <span class="section-icon">👤</span>
+
+            </div>
+
+            <div class="recipient-header">
+
+              <div class="recipient-avatar">
+
+                {{ getInitials(recipientLabel()) }}
+
+              </div>
+
+              <div class="recipient-identity">
+
+                <h3>{{ recipientLabel() }}</h3>
+
+                <span class="recipient-type">
+
+                  {{ recipientType() }}
+
+                </span>
+
+                @if (q.recipientContactName) {
+
+                  <p>{{ q.recipientContactName }}</p>
+
+                }
+
+              </div>
+
+              @if (q.clientId || q.prospectId) {
+
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-small"
+                  [disabled]="actionsDisabled()"
+                  (click)="openRecipient()"
+                >
+                  Voir la fiche →
+                </button>
+
+              }
+
+            </div>
+
+
+            <div class="information-grid">
+
+              <div class="information-field">
+
+                <span>Nom commercial</span>
+
+                <strong>
+                  {{ q.recipientName || 'Non renseigné' }}
+                </strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Raison sociale</span>
+
+                <strong>
+                  {{ q.recipientLegalName || 'Non renseignée' }}
+                </strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Adresse e-mail</span>
+
+                @if (q.recipientEmail) {
+
+                  <a
+                    class="contact-link"
+                    [href]="'mailto:' + q.recipientEmail"
+                  >
+                    {{ q.recipientEmail }}
+                  </a>
+
+                } @else {
+
+                  <strong>Non renseignée</strong>
+
+                }
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Téléphone</span>
+
+                @if (q.recipientPhone) {
+
+                  <a
+                    class="contact-link"
+                    [href]="'tel:' + q.recipientPhone"
+                  >
+                    {{ q.recipientPhone }}
+                  </a>
+
+                } @else {
+
+                  <strong>Non renseigné</strong>
+
+                }
+
+              </div>
+
+
+              <div class="information-field field-full">
+
+                <span>Adresse de facturation</span>
+
+                @if (
+                  q.recipientAddress
+                  || q.recipientCity
+                  || q.recipientPostalCode
+                ) {
+
+                  <strong>
+
+                    @if (q.recipientAddress) {
+
+                      {{ q.recipientAddress }}
+
+                      <br>
+
+                    }
+
+                    {{ q.recipientPostalCode }}
+                    {{ q.recipientCity }}
+
+                    <br>
+
+                    {{ q.recipientCountry }}
+
+                  </strong>
+
+                } @else {
+
+                  <strong>Non renseignée</strong>
+
+                }
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>SIRET</span>
+
+                <strong>
+                  {{ q.recipientSiret || 'Non renseigné' }}
+                </strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Pays</span>
+
+                <strong>
+                  {{ q.recipientCountry || 'Non renseigné' }}
+                </strong>
+
+              </div>
+
+            </div>
+
+          </section>
+
+
+          <!-- INFORMATIONS DU DEVIS -->
+
+          <section class="detail-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Informations du devis</h2>
+
+                <p>Références et dates commerciales.</p>
+
+              </div>
+
+              <span class="section-icon">📄</span>
+
+            </div>
+
+            <div class="information-grid">
+
+              <div class="information-field">
+
+                <span>Numéro de devis</span>
+
+                <strong>
+
+                  {{ q.number || 'Non attribué' }}
+
+                </strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Identifiant interne</span>
+
+                <strong>#{{ q.id }}</strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Date d'émission</span>
+
+                <strong>
+
+                  {{ formatDate(q.issueDate) }}
+
+                </strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Valable jusqu'au</span>
+
+                <strong [class.overdue-text]="isOverdue()">
+
+                  {{ formatDate(q.validUntil) }}
+
+                </strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Date de création</span>
+
+                <strong>
+
+                  {{ formatDateTime(q.createdAt) }}
+
+                </strong>
+
+              </div>
+
+
+              <div class="information-field">
+
+                <span>Dernière modification</span>
+
+                <strong>
+
+                  {{ formatDateTime(q.updatedAt) }}
+
+                </strong>
+
+              </div>
+
+
+              <div class="information-field field-full">
+
+                <span>Objet du devis</span>
+
+                <strong>{{ q.title }}</strong>
+
+              </div>
+
+            </div>
+
+          </section>
+
+
+          <!-- PRESTATIONS PONCTUELLES -->
+
+          <section class="detail-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Prestations ponctuelles</h2>
+
+                <p>
+                  Création, développement et
+                  interventions non récurrentes.
+                </p>
+
+              </div>
+
+              <span class="count-badge">
+
+                {{ oneOffItems().length }}
+
+              </span>
+
+            </div>
+
+
+            @if (oneOffItems().length === 0) {
+
+              <div class="empty-section">
+
+                <span class="empty-icon">📦</span>
+
+                <p>Aucune prestation ponctuelle.</p>
+
+              </div>
+
+            } @else {
+
+              <div class="table-wrapper">
+
+                <table class="items-table">
+
+                  <thead>
+
+                    <tr>
+
+                      <th>Désignation</th>
+
+                      <th class="align-center">Qté</th>
+
+                      <th>Unité</th>
+
+                      <th class="align-right">Prix unitaire</th>
+
+                      <th class="align-right">Remise</th>
+
+                      <th class="align-right">Total HT</th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody>
+
+                    @for (
+                      item of oneOffItems();
+                      track item.id
+                    ) {
+
+                      <tr>
+
+                        <td class="item-description-cell">
+
+                          <strong class="item-name">
+
+                            {{ item.name }}
+
+                          </strong>
+
+                          @if (item.description) {
+
+                            <p class="item-description">
+
+                              {{ item.description }}
+
+                            </p>
+
+                          }
+
+                        </td>
+
+                        <td class="align-center">
+
+                          {{ item.quantity }}
+
+                        </td>
+
+                        <td>{{ item.unit }}</td>
+
+                        <td class="align-right amount-cell">
+
+                          {{ formatAmount(item.unitPriceCents) }}
+
+                        </td>
+
+                        <td class="align-right amount-cell">
+
+                          @if (item.discountCents > 0) {
+
+                            <span class="discount-text">
+
+                              −{{ formatAmount(item.discountCents) }}
+
+                            </span>
+
+                          } @else {
+
+                            <span class="muted-text">—</span>
+
+                          }
+
+                        </td>
+
+                        <td class="align-right amount-cell">
+
+                          <strong>
+
+                            {{ formatAmount(item.totalCents) }}
+
+                          </strong>
+
+                        </td>
+
+                      </tr>
+
+                    }
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+
+              <div class="section-totals">
+
+                <div class="total-row">
+
+                  <span>Sous-total ponctuel</span>
+
+                  <strong>
+
+                    {{ formatAmount(q.subtotalCents) }}
+
+                  </strong>
+
+                </div>
+
+
+                @if (q.itemDiscountsCents > 0) {
+
+                  <div class="total-row discount-row">
+
+                    <span>Remises sur les prestations</span>
+
+                    <strong>
+
+                      −{{ formatAmount(q.itemDiscountsCents) }}
+
+                    </strong>
+
+                  </div>
+
+                }
+
+
+                @if (q.globalDiscountCents > 0) {
+
+                  <div class="total-row discount-row">
+
+                    <span>Remise globale</span>
+
+                    <strong>
+
+                      −{{ formatAmount(q.globalDiscountCents) }}
+
+                    </strong>
+
+                  </div>
+
+                }
+
+
+                <div class="total-row section-total-final">
+
+                  <span>Total ponctuel HT</span>
+
+                  <strong>
+
+                    {{ formatAmount(q.totalExcludingTaxCents) }}
+
+                  </strong>
+
+                </div>
+
+              </div>
+
+            }
+
+          </section>
+
+
+          <!-- PRESTATIONS RÉCURRENTES -->
+
+          <section class="detail-card recurring-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Prestations récurrentes</h2>
+
+                <p>
+                  Maintenance, administration et
+                  services périodiques proposés.
+                </p>
+
+              </div>
+
+              <span class="count-badge recurring-count">
+
+                {{ recurringItems().length }}
+
+              </span>
+
+            </div>
+
+
+            @if (!hasRecurringItems()) {
+
+              <div class="empty-section">
+
+                <span class="empty-icon">↻</span>
+
+                <p>Aucune prestation récurrente.</p>
+
+              </div>
+
+            } @else {
+
+              <div class="recurring-items">
+
+                @for (
+                  item of recurringItems();
+                  track item.id
+                ) {
+
+                  <article class="recurring-item">
+
+                    <div class="recurring-item-header">
+
+                      <div class="recurring-item-identity">
+
+                        <div class="recurring-item-icon">
+                          ↻
+                        </div>
+
+                        <div>
+
+                          <h3>{{ item.name }}</h3>
+
+                          <span class="cycle-badge">
+
+                            {{ item.billingCycle }}
+
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      <div class="recurring-item-price">
+
+                        <strong>
+
+                          {{ formatAmount(item.totalCents) }}
+
+                        </strong>
+
+                        <span>
+
+                          {{ getBillingLabel(item.billingCycle) }}
+
+                        </span>
+
+                      </div>
+
+                    </div>
+
+
+                    @if (item.description) {
+
+                      <p class="recurring-item-description">
+
+                        {{ item.description }}
+
+                      </p>
+
+                    }
+
+
+                    <div class="recurring-information-grid">
+
+                      <div class="information-field">
+
+                        <span>Quantité</span>
+
+                        <strong>
+
+                          {{ item.quantity }} × {{ item.unit }}
+
+                        </strong>
+
+                      </div>
+
+
+                      <div class="information-field">
+
+                        <span>Prix unitaire</span>
+
+                        <strong>
+
+                          {{ formatAmount(item.unitPriceCents) }}
+
+                        </strong>
+
+                      </div>
+
+
+                      <div class="information-field">
+
+                        <span>Engagement</span>
+
+                        <strong>
+
+                          {{ getCommitmentLabel(item) }}
+
+                        </strong>
+
+                      </div>
+
+
+                      <div class="information-field">
+
+                        <span>Renouvellement automatique</span>
+
+                        <strong>
+
+                          {{ item.autoRenew ? 'Oui' : 'Non' }}
+
+                        </strong>
+
+                      </div>
+
+
+                      @if (item.discountCents > 0) {
+
+                        <div class="information-field">
+
+                          <span>Remise par période</span>
+
+                          <strong class="discount-text">
+
+                            −{{ formatAmount(item.discountCents) }}
+
+                          </strong>
+
+                        </div>
+
+                      }
+
+                    </div>
+
+
+                    <div class="recurring-item-equivalents">
+
+                      <div>
+
+                        <span>Équivalent mensuel</span>
+
+                        <strong>
+
+                          {{ formatAmount(getItemMonthlyAmount(item)) }}
+
+                        </strong>
+
+                      </div>
+
+                      <div>
+
+                        <span>Équivalent annuel</span>
+
+                        <strong>
+
+                          {{ formatAmount(getItemAnnualAmount(item)) }}
+
+                        </strong>
+
+                      </div>
+
+                    </div>
+
+                  </article>
+
+                }
+
+              </div>
+
+
+              <div class="recurring-notice">
+
+                <span>ℹ</span>
+
+                <p>
+                  Les montants récurrents sont distincts
+                  du total ponctuel. Ils représentent
+                  une proposition commerciale et non
+                  des abonnements déjà actifs.
+                  Les équivalents mensuels sont arrondis.
+                </p>
+
+              </div>
+
+            }
+
+          </section>
+
+
+          <!-- CONDITIONS COMMERCIALES -->
+
+          <section class="detail-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Conditions commerciales</h2>
+
+                <p>
+                  Modalités et informations destinées
+                  au client.
+                </p>
+
+              </div>
+
+              <span class="section-icon">📋</span>
+
+            </div>
+
+
+            @if (!hasCommercialConditions()) {
+
+              <div class="empty-section">
+
+                <p>
+                  Aucune condition commerciale renseignée.
+                </p>
+
+              </div>
+
+            } @else {
+
+              <div class="conditions-list">
+
+                @if (q.paymentTerms) {
+
+                  <div class="condition-block">
+
+                    <h3>Modalités de paiement</h3>
+
+                    <p class="preserve-lines">
+
+                      {{ q.paymentTerms }}
+
+                    </p>
+
+                  </div>
+
+                }
+
+
+                @if (q.deliveryTerms) {
+
+                  <div class="condition-block">
+
+                    <h3>Délais et modalités de livraison</h3>
+
+                    <p class="preserve-lines">
+
+                      {{ q.deliveryTerms }}
+
+                    </p>
+
+                  </div>
+
+                }
+
+
+                @if (q.termsAndConditions) {
+
+                  <div class="condition-block">
+
+                    <h3>Conditions générales</h3>
+
+                    <p class="preserve-lines">
+
+                      {{ q.termsAndConditions }}
+
+                    </p>
+
+                  </div>
+
+                }
+
+
+                @if (q.publicNotes) {
+
+                  <div class="condition-block">
+
+                    <h3>Informations complémentaires</h3>
+
+                    <p class="preserve-lines">
+
+                      {{ q.publicNotes }}
+
+                    </p>
+
+                  </div>
+
+                }
+
+              </div>
+
+            }
+
+          </section>
+
+
+          <!-- ÉMETTEUR -->
+
+          <section class="detail-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Informations de l'émetteur</h2>
+
+                <p>
+                  Informations légales conservées
+                  lors de l'émission.
+                </p>
+
+              </div>
+
+              <span class="section-icon">🏢</span>
+
+            </div>
+
+
+            @if (q.issuerSnapshot; as issuer) {
+
+              <div class="issuer-header">
+
+                <div class="issuer-logo">MW</div>
+
+                <div>
+
+                  <h3>{{ issuer.tradeName }}</h3>
+
+                  <p>
+
+                    {{ issuer.legalName }}
+                    · {{ issuer.legalForm }}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              <div class="information-grid">
+
+                <div class="information-field">
+
+                  <span>SIREN</span>
+
+                  <strong>{{ issuer.siren }}</strong>
+
+                </div>
+
+
+                <div class="information-field">
+
+                  <span>SIRET</span>
+
+                  <strong>{{ issuer.siret }}</strong>
+
+                </div>
+
+
+                <div class="information-field">
+
+                  <span>Code APE</span>
+
+                  <strong>
+
+                    {{ issuer.apeCode || 'Non renseigné' }}
+
+                  </strong>
+
+                </div>
+
+
+                <div class="information-field">
+
+                  <span>Forme juridique</span>
+
+                  <strong>{{ issuer.legalForm }}</strong>
+
+                </div>
+
+
+                <div class="information-field field-full">
+
+                  <span>Adresse</span>
+
+                  <strong>
+
+                    {{ issuer.address }}
+
+                    <br>
+
+                    @if (issuer.addressComplement) {
+
+                      {{ issuer.addressComplement }}
+
+                      <br>
+
+                    }
+
+                    {{ issuer.postalCode }}
+                    {{ issuer.city }}
+
+                    <br>
+
+                    {{ issuer.country }}
+
+                  </strong>
+
+                </div>
+
+
+                <div class="information-field">
+
+                  <span>E-mail</span>
+
+                  <strong>{{ issuer.email }}</strong>
+
+                </div>
+
+
+                <div class="information-field">
+
+                  <span>Téléphone</span>
+
+                  <strong>
+
+                    {{ issuer.phone || 'Non renseigné' }}
+
+                  </strong>
+
+                </div>
+
+
+                <div class="information-field field-full">
+
+                  <span>Site internet</span>
+
+                  <strong>
+
+                    {{ issuer.website || 'Non renseigné' }}
+
+                  </strong>
+
+                </div>
+
+
+                @if (issuer.registrationMention) {
+
+                  <div class="information-field field-full">
+
+                    <span>Immatriculation</span>
+
+                    <strong>
+
+                      {{ issuer.registrationMention }}
+
+                    </strong>
+
+                  </div>
+
+                }
+
+
+                <div class="information-field field-full">
+
+                  <span>Régime de TVA</span>
+
+                  <strong>{{ issuer.taxMention }}</strong>
+
+                </div>
+
+              </div>
+
+            } @else {
+
+              <div class="issuer-placeholder">
+
+                <div class="issuer-logo">MW</div>
+
+                <div>
+
+                  <h3>MargeWeb</h3>
+
+                  <p>
+                    Les informations légales seront
+                    enregistrées dans le devis lors
+                    de son émission définitive.
+                  </p>
+
+                </div>
+
+              </div>
+
+            }
+
+          </section>
+
+
+          <!-- NOTES INTERNES -->
+
+          <section class="detail-card internal-notes-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Notes internes</h2>
+
+                <p>
+                  Informations privées, réservées
+                  à la gestion commerciale.
+                </p>
+
+              </div>
+
+              <span class="private-badge">Privé</span>
+
+            </div>
+
+
+            @if (hasInternalNotes()) {
+
+              <div class="internal-notes-content preserve-lines">
+
+                {{ q.internalNotes }}
+
+              </div>
+
+            } @else {
+
+              <div class="empty-section">
+
+                <p>Aucune note interne.</p>
+
+              </div>
+
+            }
+
+
+            <div class="private-notice">
+
+              🔒 Ces notes ne seront pas intégrées
+              au PDF destiné au client.
+
+            </div>
+
+          </section>
+
+        </main>
+
+
+        <!-- COLONNE LATÉRALE -->
+
+        <aside class="detail-sidebar">
+
+
+          <!-- RÉCAPITULATIF FINANCIER -->
+
+          <section class="detail-card summary-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Récapitulatif financier</h2>
+
+                <p>Montants du devis</p>
+
+              </div>
+
+            </div>
+
+
+            <div class="summary-label">
+
+              PRESTATIONS PONCTUELLES
+
+            </div>
+
+
+            <div class="summary-rows">
+
+              <div class="total-row">
+
+                <span>Sous-total</span>
+
+                <strong>
+
+                  {{ formatAmount(q.subtotalCents) }}
+
+                </strong>
+
+              </div>
+
+
+              @if (q.itemDiscountsCents > 0) {
+
+                <div class="total-row discount-row">
+
+                  <span>Remises prestations</span>
+
+                  <strong>
+
+                    −{{ formatAmount(q.itemDiscountsCents) }}
+
+                  </strong>
+
+                </div>
+
+              }
+
+
+              @if (q.globalDiscountCents > 0) {
+
+                <div class="total-row discount-row">
+
+                  <span>Remise globale</span>
+
+                  <strong>
+
+                    −{{ formatAmount(q.globalDiscountCents) }}
+
+                  </strong>
+
+                </div>
+
+              }
+
+
+              <div class="summary-divider"></div>
+
+
+              <div class="total-row">
+
+                <span>Total HT</span>
+
+                <strong>
+
+                  {{ formatAmount(q.totalExcludingTaxCents) }}
+
+                </strong>
+
+              </div>
+
+
+              <div class="total-row">
+
+                <span>
+
+                  TVA {{ q.taxExempt ? '(0 %)' : '' }}
+
+                </span>
+
+                <strong>
+
+                  {{ formatAmount(q.taxCents) }}
+
+                </strong>
+
+              </div>
+
+            </div>
+
+
+            <div class="grand-total">
+
+              <span>Total TTC ponctuel</span>
+
+              <strong>
+
+                {{ formatAmount(q.totalIncludingTaxCents) }}
+
+              </strong>
+
+            </div>
+
+
+            @if (q.taxMention) {
+
+              <p class="tax-mention">
+
+                {{ q.taxMention }}
+
+              </p>
+
+            }
+
+
+            @if (hasRecurringItems()) {
+
+              <div class="summary-divider"></div>
+
+              <div class="summary-label recurring-label">
+
+                PRESTATIONS RÉCURRENTES
+
+              </div>
+
+
+              <div class="summary-rows">
+
+                @for (
+                  cycle of recurringCycles();
+                  track cycle.cycle
+                ) {
+
+                  <div class="total-row">
+
+                    <span>{{ cycle.cycle }}</span>
+
+                    <strong>
+
+                      {{ formatAmount(cycle.amountCents) }}
+
+                      <small>{{ cycle.label }}</small>
+
+                    </strong>
+
+                  </div>
+
+                }
+
+              </div>
+
+
+              <div class="recurring-summary">
+
+                <div class="recurring-summary-monthly">
+
+                  <span>Équivalent mensuel</span>
+
+                  <strong>
+
+                    {{ formatAmount(recurringMonthlyCents()) }}
+
+                    <small>/ mois</small>
+
+                  </strong>
+
+                </div>
+
+                <div class="recurring-summary-annual">
+
+                  <span>Équivalent annuel</span>
+
+                  <strong>
+
+                    {{ formatAmount(recurringAnnualCents()) }}
+
+                  </strong>
+
+                </div>
+
+              </div>
+
+
+              <p class="summary-caption">
+
+                Montants non inclus dans le total
+                ponctuel du devis.
+
+              </p>
+
+            }
+
+          </section>
+
+
+          <!-- ACTIONS -->
+
+          <section class="detail-card actions-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Actions</h2>
+
+                <p>Gérer ce devis</p>
+
+              </div>
+
+            </div>
+
+
+            <div class="action-buttons">
+
+              @if (canEdit()) {
+
+                <button
+                  type="button"
+                  class="btn btn-primary btn-block"
+                  [disabled]="actionsDisabled()"
+                  (click)="editQuote()"
+                >
+                  ✎ Modifier le brouillon
+                </button>
+
+              }
+
+
+              @if (canIssue()) {
+
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-block"
+                  [disabled]="actionsDisabled()"
+                  (click)="requestAction('issue')"
+                >
+                  📄 Émettre le devis
+                </button>
+
+              }
+
+
+              @if (canAccept()) {
+
+                <button
+                  type="button"
+                  class="btn btn-success btn-block"
+                  [disabled]="actionsDisabled()"
+                  (click)="requestAction('accept')"
+                >
+                  ✓ Enregistrer une acceptation
+                </button>
+
+              }
+
+
+              @if (canRefuse()) {
+
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-block"
+                  [disabled]="actionsDisabled()"
+                  (click)="requestAction('refuse')"
+                >
+                  ✕ Enregistrer un refus
+                </button>
+
+              }
+
+
+              @if (canExpire()) {
+
+                <button
+                  type="button"
+                  class="btn btn-warning btn-block"
+                  [disabled]="actionsDisabled()"
+                  (click)="requestAction('expire')"
+                >
+                  ⏳ Marquer comme expiré
+                </button>
+
+              }
+
+
+              @if (canDuplicate()) {
+
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-block"
+                  [disabled]="actionsDisabled()"
+                  (click)="requestAction('duplicate')"
+                >
+                  ▣ Dupliquer le devis
+                </button>
+
+              }
+
+
+              <!-- FONCTIONNALITÉS À VENIR -->
+
+              <div class="actions-divider"></div>
+
+              <span class="actions-label">
+
+                DOCUMENT ET ENVOI
+
+              </span>
+
+
+              <button
+                type="button"
+                class="btn btn-secondary btn-block"
+                disabled
+                title="Fonctionnalité en cours de développement"
+              >
+                ↓ Télécharger le PDF
+              </button>
+
+
+              <button
+                type="button"
+                class="btn btn-secondary btn-block"
+                disabled
+                title="Fonctionnalité en cours de développement"
+              >
+                ✉ Envoyer par e-mail
+              </button>
+
+
+              <p class="coming-soon-text">
+
+                Fonctionnalités prochainement disponibles.
+
+              </p>
+
+
+              @if (canCancel() || canDelete()) {
+
+                <div class="actions-divider"></div>
+
+                <span class="actions-label danger-label">
+
+                  ACTIONS DÉFINITIVES
+
+                </span>
+
+
+                @if (canCancel()) {
+
+                  <button
+                    type="button"
+                    class="btn btn-danger-outline btn-block"
+                    [disabled]="actionsDisabled()"
+                    (click)="requestAction('cancel')"
+                  >
+                    ⊘ Annuler le devis
+                  </button>
+
+                }
+
+
+                @if (canDelete()) {
+
+                  <button
+                    type="button"
+                    class="btn btn-danger-outline btn-block"
+                    [disabled]="actionsDisabled()"
+                    (click)="requestAction('remove')"
+                  >
+                    Supprimer le brouillon
+                  </button>
+
+                }
+
+              }
+
+            </div>
+
+          </section>
+
+
+          <!-- HISTORIQUE -->
+
+          <section class="detail-card timeline-card">
+
+            <div class="section-header">
+
+              <div>
+
+                <h2>Historique</h2>
+
+                <p>Cycle de vie du devis</p>
+
+              </div>
+
+            </div>
+
+
+            <div class="timeline">
+
+              @for (
+                event of timeline();
+                track event.key
+              ) {
+
+                <article class="timeline-event">
+
+                  <div
+                    class="timeline-marker"
+                    [style.background-color]="event.color"
+                  >
+
+                    {{ event.icon }}
+
+                  </div>
+
+                  <div class="timeline-content">
+
+                    <h3>{{ event.title }}</h3>
+
+                    <span class="timeline-date">
+
+                      {{ formatDateTime(event.date) }}
+
+                    </span>
+
+                    <p class="preserve-lines">
+
+                      {{ event.description }}
+
+                    </p>
+
+                  </div>
+
+                </article>
+
+              }
+
+            </div>
+
+
+            <div class="timeline-footer">
+
+              <span>Dernière mise à jour</span>
+
+              <strong>
+
+                {{ formatDateTime(q.updatedAt) }}
+
+              </strong>
+
+            </div>
+
+          </section>
+
+        </aside>
+
+      </div>
+
+    } @else {
+
+      <div class="empty-state">
+
+        <div class="state-icon">📄</div>
+
+        <h2>Aucun devis à afficher</h2>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="goBack()"
+        >
+          Retour aux devis
+        </button>
+
+      </div>
+
+    }
+
+  }
+
+
+  <!-- MODALE DE CONFIRMATION -->
+
+  @if (confirmation(); as modal) {
+
+    <div
+      class="modal-backdrop"
+      (click)="closeConfirmation()"
+    >
+
+      <section
+        class="confirmation-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmation-title"
+        (click)="$event.stopPropagation()"
+      >
+
+        <div class="modal-header">
+
+          <div
+            class="modal-icon"
+            [class.modal-icon-danger]="modal.danger"
+          >
+
+            {{ modal.danger ? '!' : '✓' }}
+
+          </div>
+
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Fermer la confirmation"
+            [disabled]="processingAction()"
+            (click)="closeConfirmation()"
+          >
+            ×
+          </button>
+
+        </div>
+
+
+        <div class="modal-body">
+
+          <h2 id="confirmation-title">
+
+            {{ modal.title }}
+
+          </h2>
+
+          <p class="modal-description">
+
+            {{ modal.description }}
+
+          </p>
+
+
+          @if (quote(); as currentQuote) {
+
+            <div class="modal-quote-summary">
+
+              <strong>{{ quoteLabel() }}</strong>
+
+              <span>{{ currentQuote.title }}</span>
+
+              <span>{{ recipientLabel() }}</span>
+
+              <strong class="modal-quote-amount">
+
+                {{ formatAmount(currentQuote.totalIncludingTaxCents) }}
+
+                TTC ponctuel
+
+              </strong>
+
+            </div>
+
+          }
+
+
+          @if (modal.showReason) {
+
+            <div class="form-field">
+
+              <label for="action-reason">
+
+                Motif
+
+                @if (modal.reasonRequired) {
+
+                  <span class="required-mark">*</span>
+
+                } @else {
+
+                  <span class="optional-mark">
+
+                    (facultatif)
+
+                  </span>
+
+                }
+
+              </label>
+
+
+              <textarea
+                id="action-reason"
+                rows="4"
+                maxlength="5000"
+                placeholder="Renseigner le motif..."
+                [disabled]="processingAction()"
+                [ngModel]="actionReason()"
+                (ngModelChange)="updateActionReason($event)"
+              ></textarea>
+
+
+              <div class="field-footer">
+
+                <span>
+
+                  @if (modal.reasonRequired) {
+
+                    Ce champ est obligatoire.
+
+                  }
+
+                </span>
+
+                <span>
+
+                  {{ actionReason().length }} / 5000
+
+                </span>
+
+              </div>
+
+            </div>
+
+          }
+
+
+          @if (actionError()) {
+
+            <div class="alert alert-error modal-error" role="alert">
+
+              <span>⚠</span>
+
+              <span>{{ actionError() }}</span>
+
+            </div>
+
+          }
+
+        </div>
+
+
+        <div class="modal-footer">
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="processingAction()"
+            (click)="closeConfirmation()"
+          >
+            Retour
+          </button>
+
+
+          <button
+            type="button"
+            class="btn"
+            [class.btn-danger]="modal.danger"
+            [class.btn-primary]="!modal.danger"
+            [disabled]="!canConfirmAction()"
+            (click)="confirmAction()"
+          >
+
+            @if (processingAction()) {
+
+              <span class="button-spinner"></span>
+
+              Traitement...
+
+            } @else {
+
+              {{ modal.buttonLabel }}
+
+            }
+
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  }
+
+</div>

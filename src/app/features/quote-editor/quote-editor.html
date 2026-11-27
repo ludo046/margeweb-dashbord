@@ -1,0 +1,2231 @@
+<div class="quote-editor-page">
+
+  <!-- EN-TÊTE -->
+
+  <header class="page-header">
+
+    <div class="page-heading">
+
+      <button
+        type="button"
+        class="back-button"
+        [disabled]="saving()"
+        (click)="cancel()"
+      >
+        ← Retour aux devis
+      </button>
+
+      <span class="eyebrow">
+        Gestion commerciale
+      </span>
+
+      <div class="title-row">
+
+        <h1>{{ pageTitle() }}</h1>
+
+        <span class="draft-badge">
+          <span class="status-dot"></span>
+          Brouillon
+        </span>
+
+      </div>
+
+      <p>{{ pageDescription() }}</p>
+
+    </div>
+
+    <div class="header-actions">
+
+      <button
+        type="button"
+        class="button button-secondary"
+        [disabled]="saving()"
+        (click)="cancel()"
+      >
+        Annuler
+      </button>
+
+      <button
+        type="button"
+        class="button button-primary"
+        [disabled]="!canSave()"
+        (click)="save()"
+      >
+        @if (saving()) {
+          <span class="spinner"></span>
+          Enregistrement...
+        } @else {
+          ✓ Enregistrer le brouillon
+        }
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <!-- CHARGEMENT -->
+
+  @if (loading()) {
+
+    <div class="loading-state">
+
+      <span class="spinner"></span>
+
+      <h3>Chargement de l'éditeur</h3>
+
+      <p>Récupération des données commerciales...</p>
+
+    </div>
+
+  } @else if (loadError()) {
+
+    <div class="error-state">
+
+      <span class="state-icon">⚠</span>
+
+      <h3>Impossible d'ouvrir l'éditeur</h3>
+
+      <p>{{ loadError() }}</p>
+
+      <button
+        type="button"
+        class="button button-secondary"
+        (click)="retry()"
+      >
+        Réessayer
+      </button>
+
+    </div>
+
+  } @else {
+
+    <!-- ERREURS -->
+
+    @if (saveError()) {
+
+      <div class="alert alert-error" role="alert">
+
+        <span class="alert-icon">!</span>
+
+        <div>
+          <strong>Échec de l'enregistrement</strong>
+          <p>{{ saveError() }}</p>
+        </div>
+
+      </div>
+
+    }
+
+    @if (validationErrors().length > 0) {
+
+      <div class="alert alert-error" role="alert">
+
+        <span class="alert-icon">!</span>
+
+        <div>
+
+          <strong>
+            Vérifiez les informations suivantes
+          </strong>
+
+          <ul>
+
+            @for (
+              error of validationErrors();
+              track $index
+            ) {
+              <li>{{ error }}</li>
+            }
+
+          </ul>
+
+        </div>
+
+      </div>
+
+    }
+
+
+    <!-- INFORMATIONS BROUILLON -->
+
+    <div class="alert alert-info">
+
+      <span class="alert-icon">i</span>
+
+      <div>
+
+        <strong>
+          Vous préparez un brouillon
+        </strong>
+
+        <p>
+          Aucun numéro définitif ne sera attribué
+          et aucun document ne sera envoyé lors
+          de cet enregistrement.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <!-- CONTENU PRINCIPAL -->
+
+    <div class="editor-layout">
+
+      <div class="editor-main">
+
+
+        <!-- 01 — DESTINATAIRE -->
+
+        <section class="editor-card">
+
+          <div class="section-header">
+
+            <div class="section-icon">
+              01
+            </div>
+
+            <div class="section-heading">
+
+              <h2>Destinataire</h2>
+
+              <p>
+                Sélectionnez le prospect ou le client
+                concerné par cette proposition.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div class="section-body">
+
+            @if (!isEditMode()) {
+
+              <div class="recipient-type-selector">
+
+                <button
+                  type="button"
+                  class="recipient-type-button"
+                  [class.selected]="recipientType() === 'prospect'"
+                  [attr.aria-pressed]="recipientType() === 'prospect'"
+                  [disabled]="saving()"
+                  (click)="setRecipientType('prospect')"
+                >
+
+                  <span class="recipient-type-icon">
+                    ♟
+                  </span>
+
+                  <span>
+                    <strong>Prospect</strong>
+                    <small>Un futur client</small>
+                  </span>
+
+                  <span class="selection-indicator">
+                  </span>
+
+                </button>
+
+                <button
+                  type="button"
+                  class="recipient-type-button"
+                  [class.selected]="recipientType() === 'client'"
+                  [attr.aria-pressed]="recipientType() === 'client'"
+                  [disabled]="saving()"
+                  (click)="setRecipientType('client')"
+                >
+
+                  <span class="recipient-type-icon">
+                    🤝
+                  </span>
+
+                  <span>
+                    <strong>Client</strong>
+                    <small>Un client existant</small>
+                  </span>
+
+                  <span class="selection-indicator">
+                  </span>
+
+                </button>
+
+              </div>
+
+              @if (recipientsError()) {
+
+                <div class="alert alert-error">
+
+                  <p>{{ recipientsError() }}</p>
+
+                </div>
+
+              } @else if (recipientsLoading()) {
+
+                <p class="muted-text">
+                  Chargement des destinataires...
+                </p>
+
+              } @else {
+
+                <div class="recipient-picker">
+
+                  <div class="field">
+
+                    <label for="recipient-search">
+                      Rechercher un destinataire
+                    </label>
+
+                    <input
+                      id="recipient-search"
+                      type="search"
+                      placeholder="Nom, e-mail, localisation..."
+                      [ngModel]="recipientSearch()"
+                      (ngModelChange)="recipientSearch.set($event)"
+                      [disabled]="saving()"
+                    />
+
+                  </div>
+
+                  <div class="recipient-list">
+
+                    @if (recipientType() === 'prospect') {
+
+                      @for (
+                        prospect of filteredProspects();
+                        track prospect.id
+                      ) {
+
+                        <button
+                          type="button"
+                          class="recipient-option"
+                          [class.selected]="recipientId() === prospect.id"
+                          [attr.aria-pressed]="recipientId() === prospect.id"
+                          [disabled]="saving()"
+                          (click)="selectRecipient(prospect.id)"
+                        >
+
+                          <span class="recipient-avatar">
+                            {{ getInitials(prospect.name) }}
+                          </span>
+
+                          <span class="recipient-information">
+
+                            <strong>
+                              {{ prospect.name }}
+                            </strong>
+
+                            <small>
+                              {{
+                                prospect.email ||
+                                prospect.location ||
+                                'Coordonnées non renseignées'
+                              }}
+                            </small>
+
+                          </span>
+
+                          <span class="recipient-status">
+                            {{ prospect.status }}
+                          </span>
+
+                          @if (recipientId() === prospect.id) {
+                            <span class="selected-check">
+                              ✓
+                            </span>
+                          }
+
+                        </button>
+
+                      } @empty {
+
+                        <div class="empty-recipient-list">
+                          Aucun prospect trouvé.
+                        </div>
+
+                      }
+
+                    } @else {
+
+                      @for (
+                        client of filteredClients();
+                        track client.id
+                      ) {
+
+                        <button
+                          type="button"
+                          class="recipient-option"
+                          [class.selected]="recipientId() === client.id"
+                          [attr.aria-pressed]="recipientId() === client.id"
+                          [disabled]="saving()"
+                          (click)="selectRecipient(client.id)"
+                        >
+
+                          <span class="recipient-avatar">
+                            {{ getInitials(client.name) }}
+                          </span>
+
+                          <span class="recipient-information">
+
+                            <strong>
+                              {{ client.name }}
+                            </strong>
+
+                            <small>
+                              {{
+                                client.email ||
+                                client.city ||
+                                'Coordonnées non renseignées'
+                              }}
+                            </small>
+
+                          </span>
+
+                          <span class="recipient-status">
+                            {{ client.status }}
+                          </span>
+
+                          @if (recipientId() === client.id) {
+                            <span class="selected-check">
+                              ✓
+                            </span>
+                          }
+
+                        </button>
+
+                      } @empty {
+
+                        <div class="empty-recipient-list">
+                          Aucun client trouvé.
+                        </div>
+
+                      }
+
+                    }
+
+                  </div>
+
+                </div>
+
+              }
+
+            }
+
+            @if (recipientId() !== null) {
+
+              <div class="selected-recipient">
+
+                <span class="recipient-avatar large">
+
+                  {{ getInitials(getRecipientLabel()) }}
+
+                </span>
+
+                <div class="recipient-information">
+
+                  <span class="small-label">
+                    Destinataire sélectionné
+                  </span>
+
+                  <strong>
+                    {{ getRecipientLabel() }}
+                  </strong>
+
+                  <small>
+                    {{
+                      recipientType() === 'client'
+                        ? 'Client'
+                        : 'Prospect'
+                    }}
+                  </small>
+
+                </div>
+
+                <span class="selected-check">✓</span>
+
+              </div>
+
+            }
+
+            @if (isEditMode()) {
+
+              <p class="field-hint">
+                Le destinataire associé à un devis
+                existant ne peut pas être remplacé.
+                Ses coordonnées restent modifiables.
+              </p>
+
+            }
+
+            @if (
+              hasCommercialEstimate() &&
+              !isEditMode()
+            ) {
+
+              <div class="estimate-banner">
+
+                <div class="estimate-content">
+
+                  <strong>
+                    Estimation commerciale disponible
+                  </strong>
+
+                  <p>
+                    Ce prospect possède déjà des tarifs
+                    renseignés dans sa fiche.
+                  </p>
+
+                  <div class="estimate-amounts">
+
+                    @if (
+                      selectedProspect()?.creationQuote
+                    ) {
+
+                      <span>
+
+                        Création :
+
+                        <strong>
+                          {{
+                            selectedProspect()?.creationQuote
+                              | currency:'EUR':'symbol':'1.2-2':'fr'
+                          }}
+                        </strong>
+
+                      </span>
+
+                    }
+
+                    @if (
+                      selectedProspect()?.monthlySubscription
+                    ) {
+
+                      <span>
+
+                        Maintenance :
+
+                        <strong>
+                          {{
+                            selectedProspect()?.monthlySubscription
+                              | currency:'EUR':'symbol':'1.2-2':'fr'
+                          }}
+                          / mois
+                        </strong>
+
+                      </span>
+
+                    }
+
+                  </div>
+
+                </div>
+
+                <button
+                  type="button"
+                  class="button button-outline"
+                  [disabled]="saving()"
+                  (click)="importCommercialEstimate()"
+                >
+                  Importer les tarifs
+                </button>
+
+              </div>
+
+            }
+
+          </div>
+
+        </section>
+
+
+        <!-- 02 — COORDONNÉES -->
+
+        <section class="editor-card">
+
+          <div class="section-header">
+
+            <div class="section-icon">
+              02
+            </div>
+
+            <div class="section-heading">
+
+              <h2>Coordonnées du destinataire</h2>
+
+              <p>
+                Informations qui figureront sur le devis.
+              </p>
+
+            </div>
+
+            @if (recipientId() !== null) {
+
+              <button
+                type="button"
+                class="button button-text"
+                [disabled]="
+                  saving() ||
+                  (!selectedClient() && !selectedProspect())
+                "
+                (click)="refreshRecipientFields()"
+              >
+                ↻ Actualiser
+              </button>
+
+            }
+
+          </div>
+
+          <div class="section-body">
+
+            <div class="form-grid">
+
+              <div class="field">
+
+                <label for="recipient-name">
+                  Nom du destinataire
+                  <span class="required">*</span>
+                </label>
+
+                <input
+                  id="recipient-name"
+                  type="text"
+                  maxlength="255"
+                  placeholder="Nom de l'organisation"
+                  [ngModel]="form().recipientName"
+                  (ngModelChange)="updateForm('recipientName', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="recipient-legal-name">
+                  Raison sociale
+                </label>
+
+                <input
+                  id="recipient-legal-name"
+                  type="text"
+                  maxlength="255"
+                  placeholder="Association, entreprise..."
+                  [ngModel]="form().recipientLegalName"
+                  (ngModelChange)="updateForm('recipientLegalName', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="recipient-contact">
+                  Nom du contact
+                </label>
+
+                <input
+                  id="recipient-contact"
+                  type="text"
+                  maxlength="255"
+                  placeholder="Prénom et nom"
+                  [ngModel]="form().recipientContactName"
+                  (ngModelChange)="updateForm('recipientContactName', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="recipient-siret">
+                  SIRET
+                </label>
+
+                <input
+                  id="recipient-siret"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="14"
+                  placeholder="14 chiffres"
+                  [ngModel]="form().recipientSiret"
+                  (ngModelChange)="updateForm('recipientSiret', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="recipient-email">
+                  Adresse e-mail
+                </label>
+
+                <input
+                  id="recipient-email"
+                  type="email"
+                  maxlength="255"
+                  placeholder="contact@organisation.fr"
+                  [ngModel]="form().recipientEmail"
+                  (ngModelChange)="updateForm('recipientEmail', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="recipient-phone">
+                  Téléphone
+                </label>
+
+                <input
+                  id="recipient-phone"
+                  type="tel"
+                  maxlength="255"
+                  placeholder="06 00 00 00 00"
+                  [ngModel]="form().recipientPhone"
+                  (ngModelChange)="updateForm('recipientPhone', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field full-width">
+
+                <label for="recipient-address">
+                  Adresse postale
+                </label>
+
+                <input
+                  id="recipient-address"
+                  type="text"
+                  maxlength="255"
+                  placeholder="Numéro et nom de rue"
+                  [ngModel]="form().recipientAddress"
+                  (ngModelChange)="updateForm('recipientAddress', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="recipient-postal-code">
+                  Code postal
+                </label>
+
+                <input
+                  id="recipient-postal-code"
+                  type="text"
+                  maxlength="20"
+                  placeholder="48000"
+                  [ngModel]="form().recipientPostalCode"
+                  (ngModelChange)="updateForm('recipientPostalCode', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="recipient-city">
+                  Ville
+                </label>
+
+                <input
+                  id="recipient-city"
+                  type="text"
+                  maxlength="255"
+                  placeholder="Ville"
+                  [ngModel]="form().recipientCity"
+                  (ngModelChange)="updateForm('recipientCity', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field full-width">
+
+                <label for="recipient-country">
+                  Pays
+                </label>
+
+                <input
+                  id="recipient-country"
+                  type="text"
+                  maxlength="255"
+                  [ngModel]="form().recipientCountry"
+                  (ngModelChange)="updateForm('recipientCountry', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+            </div>
+
+            <p class="field-hint">
+
+              Les modifications effectuées ici
+              concernent uniquement ce devis.
+              Elles ne modifient pas la fiche du
+              prospect ou du client.
+
+            </p>
+
+          </div>
+
+        </section>
+
+
+        <!-- 03 — INFORMATIONS DU DEVIS -->
+
+        <section class="editor-card">
+
+          <div class="section-header">
+
+            <div class="section-icon">
+              03
+            </div>
+
+            <div class="section-heading">
+
+              <h2>Informations du devis</h2>
+
+              <p>
+                Identifiez votre proposition commerciale.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div class="section-body">
+
+            <div class="form-grid">
+
+              <div class="field full-width">
+
+                <label for="quote-title">
+                  Titre du devis
+                  <span class="required">*</span>
+                </label>
+
+                <input
+                  id="quote-title"
+                  type="text"
+                  maxlength="255"
+                  placeholder="Création et maintenance du site internet"
+                  [ngModel]="form().title"
+                  (ngModelChange)="updateForm('title', $event)"
+                  [disabled]="saving()"
+                />
+
+              </div>
+
+              <div class="field">
+
+                <label for="quote-validity">
+                  Date de validité
+                </label>
+
+                <input
+                  id="quote-validity"
+                  type="date"
+                  [min]="today"
+                  [ngModel]="form().validUntil"
+                  (ngModelChange)="updateForm('validUntil', $event || '')"
+                  [disabled]="saving()"
+                />
+
+                <small class="field-hint">
+
+                  Si aucune date n'est renseignée,
+                  la durée de validité configurée
+                  sera appliquée lors de l'émission.
+
+                </small>
+
+              </div>
+
+              <div class="field">
+
+                <label>Référence du devis</label>
+
+                <div class="readonly-field">
+
+                  {{ getQuoteLabel() }}
+
+                </div>
+
+                <small class="field-hint">
+
+                  Le numéro définitif sera attribué
+                  lors de l'émission.
+
+                </small>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- 04 — PRESTATIONS -->
+
+        <section class="editor-card prestations-card">
+
+          <div class="section-header">
+
+            <div class="section-icon">
+              04
+            </div>
+
+            <div class="section-heading">
+
+              <h2>Prestations</h2>
+
+              <p>
+                Composez votre offre commerciale.
+              </p>
+
+            </div>
+
+            <span class="count-badge">
+
+              {{ items().length }}
+              prestation{{ items().length > 1 ? 's' : '' }}
+
+            </span>
+
+          </div>
+
+          <div class="section-body">
+
+            <!-- RACCOURCIS -->
+
+            <div class="quick-add">
+
+              <span class="small-label">
+                Ajout rapide
+              </span>
+
+              <div class="quick-add-buttons">
+
+                <button
+                  type="button"
+                  class="quick-add-button"
+                  [disabled]="!canAddItem()"
+                  (click)="addWebsiteCreation()"
+                >
+                  + Création de site
+                </button>
+
+                <button
+                  type="button"
+                  class="quick-add-button"
+                  [disabled]="!canAddItem()"
+                  (click)="addMaintenance()"
+                >
+                  + Maintenance
+                </button>
+
+              </div>
+
+            </div>
+
+
+            <!-- LISTE DES PRESTATIONS -->
+
+            <div class="items-list">
+
+              @for (
+                item of items();
+                track item.key;
+                let index = $index;
+                let first = $first;
+                let last = $last
+              ) {
+
+                <article
+                  class="item-card"
+                  [class.recurring-item]="item.type === 'Récurrente'"
+                >
+
+                  <div class="item-header">
+
+                    <div class="item-heading">
+
+                      <span class="item-number">
+                        {{ index + 1 }}
+                      </span>
+
+                      <div>
+
+                        <strong>
+                          Prestation {{ index + 1 }}
+                        </strong>
+
+                        <span
+                          class="item-type-badge"
+                          [class.recurring]="item.type === 'Récurrente'"
+                        >
+
+                          {{ item.type }}
+
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                    <div class="item-actions">
+
+                      <button
+                        type="button"
+                        class="icon-button"
+                        title="Monter la prestation"
+                        aria-label="Monter la prestation"
+                        [disabled]="first || saving()"
+                        (click)="moveItem(item.key, -1)"
+                      >
+                        ↑
+                      </button>
+
+                      <button
+                        type="button"
+                        class="icon-button"
+                        title="Descendre la prestation"
+                        aria-label="Descendre la prestation"
+                        [disabled]="last || saving()"
+                        (click)="moveItem(item.key, 1)"
+                      >
+                        ↓
+                      </button>
+
+                      <button
+                        type="button"
+                        class="icon-button"
+                        title="Dupliquer la prestation"
+                        aria-label="Dupliquer la prestation"
+                        [disabled]="!canAddItem()"
+                        (click)="duplicateItem(item.key)"
+                      >
+                        ⧉
+                      </button>
+
+                      <button
+                        type="button"
+                        class="icon-button danger"
+                        title="Supprimer la prestation"
+                        aria-label="Supprimer la prestation"
+                        [disabled]="saving()"
+                        (click)="removeItem(item.key)"
+                      >
+                        ×
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                  <div class="item-body">
+
+                    <div class="form-grid">
+
+                      <div class="field full-width">
+
+                        <label
+                          [for]="'item-type-' + item.key"
+                        >
+                          Type de prestation
+                        </label>
+
+                        <select
+                          [id]="'item-type-' + item.key"
+                          [ngModel]="item.type"
+                          (ngModelChange)="updateItem(item.key, 'type', $event)"
+                          [disabled]="saving()"
+                        >
+
+                          @for (
+                            type of itemTypes;
+                            track type
+                          ) {
+
+                            <option [ngValue]="type">
+                              {{ type }}
+                            </option>
+
+                          }
+
+                        </select>
+
+                      </div>
+
+                      <div class="field full-width">
+
+                        <label
+                          [for]="'item-name-' + item.key"
+                        >
+
+                          Intitulé de la prestation
+                          <span class="required">*</span>
+
+                        </label>
+
+                        <input
+                          [id]="'item-name-' + item.key"
+                          type="text"
+                          maxlength="255"
+                          placeholder="Ex. Création du site internet"
+                          [ngModel]="item.name"
+                          (ngModelChange)="updateItem(item.key, 'name', $event)"
+                          [disabled]="saving()"
+                        />
+
+                      </div>
+
+                      <div class="field full-width">
+
+                        <label
+                          [for]="'item-description-' + item.key"
+                        >
+                          Description
+                        </label>
+
+                        <textarea
+                          [id]="'item-description-' + item.key"
+                          rows="3"
+                          maxlength="10000"
+                          placeholder="Détaillez le contenu de la prestation..."
+                          [ngModel]="item.description"
+                          (ngModelChange)="updateItem(item.key, 'description', $event)"
+                          [disabled]="saving()"
+                        ></textarea>
+
+                      </div>
+
+                    </div>
+
+
+                    <!-- TARIFICATION -->
+
+                    <div class="pricing-grid">
+
+                      <div class="field">
+
+                        <label
+                          [for]="'item-quantity-' + item.key"
+                        >
+                          Quantité
+                        </label>
+
+                        <input
+                          [id]="'item-quantity-' + item.key"
+                          type="number"
+                          min="1"
+                          max="10000"
+                          step="1"
+                          [ngModel]="item.quantity"
+                          (ngModelChange)="updateItem(item.key, 'quantity', $event)"
+                          [disabled]="saving()"
+                        />
+
+                      </div>
+
+                      <div class="field">
+
+                        <label
+                          [for]="'item-unit-' + item.key"
+                        >
+                          Unité
+                        </label>
+
+                        <input
+                          [id]="'item-unit-' + item.key"
+                          type="text"
+                          list="quote-units"
+                          maxlength="50"
+                          [ngModel]="item.unit"
+                          (ngModelChange)="updateItem(item.key, 'unit', $event)"
+                          [disabled]="saving()"
+                        />
+
+                      </div>
+
+                      <div class="field">
+
+                        <label
+                          [for]="'item-price-' + item.key"
+                        >
+                          Prix unitaire
+                        </label>
+
+                        <div class="input-with-suffix">
+
+                          <input
+                            [id]="'item-price-' + item.key"
+                            type="text"
+                            inputmode="decimal"
+                            placeholder="0,00"
+                            [ngModel]="item.unitPrice"
+                            (ngModelChange)="updateItem(item.key, 'unitPrice', $event)"
+                            [disabled]="saving()"
+                          />
+
+                          <span>€</span>
+
+                        </div>
+
+                      </div>
+
+                      <div class="field">
+
+                        <label
+                          [for]="'item-discount-' + item.key"
+                        >
+                          Remise
+                        </label>
+
+                        <div class="input-with-suffix">
+
+                          <input
+                            [id]="'item-discount-' + item.key"
+                            type="text"
+                            inputmode="decimal"
+                            placeholder="0,00"
+                            [ngModel]="item.discount"
+                            (ngModelChange)="updateItem(item.key, 'discount', $event)"
+                            [disabled]="saving()"
+                          />
+
+                          <span>€</span>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    <p class="field-hint">
+
+                      La remise s'applique au montant
+                      total de cette ligne.
+
+                    </p>
+
+
+                    <!-- OPTIONS RÉCURRENTES -->
+
+                    @if (item.type === 'Récurrente') {
+
+                      <div class="recurring-options">
+
+                        <div class="recurring-heading">
+
+                          <span class="recurring-icon">
+                            ↻
+                          </span>
+
+                          <div>
+
+                            <strong>
+                              Facturation récurrente
+                            </strong>
+
+                            <p>
+                              Configurez les conditions
+                              de la prestation récurrente.
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                        <div class="form-grid">
+
+                          <div class="field">
+
+                            <label
+                              [for]="'billing-cycle-' + item.key"
+                            >
+                              Périodicité
+                            </label>
+
+                            <select
+                              [id]="'billing-cycle-' + item.key"
+                              [ngModel]="item.billingCycle"
+                              (ngModelChange)="updateItem(item.key, 'billingCycle', $event)"
+                              [disabled]="saving()"
+                            >
+
+                              @for (
+                                cycle of billingCycles;
+                                track cycle
+                              ) {
+
+                                <option [ngValue]="cycle">
+                                  {{ cycle }}
+                                </option>
+
+                              }
+
+                            </select>
+
+                          </div>
+
+                          <div class="field">
+
+                            <label
+                              [for]="'commitment-' + item.key"
+                            >
+                              Engagement
+                            </label>
+
+                            <div class="input-with-suffix">
+
+                              <input
+                                [id]="'commitment-' + item.key"
+                                type="number"
+                                min="1"
+                                max="120"
+                                step="1"
+                                placeholder="Sans engagement"
+                                [ngModel]="item.commitmentMonths"
+                                (ngModelChange)="updateItem(item.key, 'commitmentMonths', $event)"
+                                [disabled]="saving()"
+                              />
+
+                              <span>mois</span>
+
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                        <label class="checkbox-field">
+
+                          <input
+                            type="checkbox"
+                            [ngModel]="item.autoRenew"
+                            (ngModelChange)="updateItem(item.key, 'autoRenew', $event)"
+                            [disabled]="saving()"
+                          />
+
+                          <span>
+
+                            <strong>
+                              Renouvellement automatique
+                            </strong>
+
+                            <small>
+                              À prévoir dans les conditions
+                              contractuelles de la prestation.
+                            </small>
+
+                          </span>
+
+                        </label>
+
+                        <div class="recurring-estimates">
+
+                          <div>
+
+                            <span>
+                              Équivalent mensuel
+                            </span>
+
+                            <strong>
+
+                              {{
+                                formatAmount(
+                                  getItemMonthlyAmount(item)
+                                )
+                              }}
+
+                              <small>/ mois</small>
+
+                            </strong>
+
+                          </div>
+
+                          <div>
+
+                            <span>
+                              Montant annualisé
+                            </span>
+
+                            <strong>
+
+                              {{
+                                formatAmount(
+                                  getItemAnnualAmount(item)
+                                )
+                              }}
+
+                              <small>/ an</small>
+
+                            </strong>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                    }
+
+                  </div>
+
+
+                  <!-- TOTAL DE LA PRESTATION -->
+
+                  <div class="item-footer">
+
+                    <div class="item-subtotal">
+
+                      <span>Sous-total</span>
+
+                      <strong>
+                        {{
+                          formatAmount(
+                            getItemSubtotal(item)
+                          )
+                        }}
+                      </strong>
+
+                    </div>
+
+                    @if (getItemDiscount(item) > 0) {
+
+                      <div class="item-discount">
+
+                        <span>Remise</span>
+
+                        <strong>
+
+                          −{{
+                            formatAmount(
+                              getItemDiscount(item)
+                            )
+                          }}
+
+                        </strong>
+
+                      </div>
+
+                    }
+
+                    <div class="item-total">
+
+                      <span>Total de la prestation</span>
+
+                      <strong>
+
+                        {{
+                          formatAmount(
+                            getItemTotal(item)
+                          )
+                        }}
+
+                        @if (item.type === 'Récurrente') {
+
+                          <small>
+                            {{ getBillingLabel(item.billingCycle) }}
+                          </small>
+
+                        }
+
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                </article>
+
+              } @empty {
+
+                <div class="empty-items">
+
+                  <span class="empty-icon">
+                    ＋
+                  </span>
+
+                  <h3>Aucune prestation</h3>
+
+                  <p>
+                    Ajoutez une première prestation
+                    pour composer votre devis.
+                  </p>
+
+                </div>
+
+              }
+
+            </div>
+
+            <datalist id="quote-units">
+
+              @for (unit of units; track unit) {
+
+                <option [value]="unit"></option>
+
+              }
+
+            </datalist>
+
+
+            <!-- AJOUT DE PRESTATIONS -->
+
+            <div class="add-item-actions">
+
+              <button
+                type="button"
+                class="add-item-button"
+                [disabled]="!canAddItem()"
+                (click)="addItem('Ponctuelle')"
+              >
+
+                <span class="add-icon">+</span>
+
+                <span>
+
+                  <strong>
+                    Prestation ponctuelle
+                  </strong>
+
+                  <small>
+                    Création, intervention, développement...
+                  </small>
+
+                </span>
+
+              </button>
+
+              <button
+                type="button"
+                class="add-item-button recurring"
+                [disabled]="!canAddItem()"
+                (click)="addItem('Récurrente')"
+              >
+
+                <span class="add-icon">↻</span>
+
+                <span>
+
+                  <strong>
+                    Prestation récurrente
+                  </strong>
+
+                  <small>
+                    Maintenance, hébergement, administration...
+                  </small>
+
+                </span>
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- 05 — REMISE COMMERCIALE -->
+
+        <section class="editor-card">
+
+          <div class="section-header">
+
+            <div class="section-icon">
+              05
+            </div>
+
+            <div class="section-heading">
+
+              <h2>Remise commerciale</h2>
+
+              <p>
+                Appliquez une remise supplémentaire
+                aux prestations ponctuelles.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div class="section-body">
+
+            <div class="form-grid">
+
+              <div class="field">
+
+                <label for="global-discount">
+                  Remise globale
+                </label>
+
+                <div class="input-with-suffix">
+
+                  <input
+                    id="global-discount"
+                    type="text"
+                    inputmode="decimal"
+                    placeholder="0,00"
+                    [ngModel]="form().globalDiscount"
+                    (ngModelChange)="updateForm('globalDiscount', $event)"
+                    [disabled]="saving()"
+                  />
+
+                  <span>€</span>
+
+                </div>
+
+              </div>
+
+              <div class="field">
+
+                <label>
+                  Montant disponible
+                </label>
+
+                <div class="readonly-field">
+
+                  {{
+                    formatAmount(
+                      totals().subtotalCents -
+                      totals().itemDiscountsCents
+                    )
+                  }}
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <p class="field-hint">
+
+              Cette remise ne s'applique pas aux
+              prestations récurrentes.
+
+            </p>
+
+          </div>
+
+        </section>
+
+
+        <!-- 06 — CONDITIONS COMMERCIALES -->
+
+        <section class="editor-card">
+
+          <div class="section-header">
+
+            <div class="section-icon">
+              06
+            </div>
+
+            <div class="section-heading">
+
+              <h2>Conditions commerciales</h2>
+
+              <p>
+                Définissez les modalités de votre offre.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div class="section-body">
+
+            <div class="form-grid">
+
+              <div class="field full-width">
+
+                <label for="payment-terms">
+                  Conditions de paiement
+                </label>
+
+                <textarea
+                  id="payment-terms"
+                  rows="4"
+                  maxlength="20000"
+                  placeholder="Ex. 30 % à la commande, solde à la livraison..."
+                  [ngModel]="form().paymentTerms"
+                  (ngModelChange)="updateForm('paymentTerms', $event)"
+                  [disabled]="saving()"
+                ></textarea>
+
+              </div>
+
+              <div class="field full-width">
+
+                <label for="delivery-terms">
+                  Délais et conditions de livraison
+                </label>
+
+                <textarea
+                  id="delivery-terms"
+                  rows="4"
+                  maxlength="20000"
+                  placeholder="Ex. Livraison sous 30 jours après réception des éléments nécessaires..."
+                  [ngModel]="form().deliveryTerms"
+                  (ngModelChange)="updateForm('deliveryTerms', $event)"
+                  [disabled]="saving()"
+                ></textarea>
+
+              </div>
+
+              <div class="field full-width">
+
+                <label for="terms-and-conditions">
+                  Conditions générales
+                </label>
+
+                <textarea
+                  id="terms-and-conditions"
+                  rows="5"
+                  maxlength="20000"
+                  placeholder="Conditions applicables à la proposition commerciale..."
+                  [ngModel]="form().termsAndConditions"
+                  (ngModelChange)="updateForm('termsAndConditions', $event)"
+                  [disabled]="saving()"
+                ></textarea>
+
+              </div>
+
+            </div>
+
+            @if (!isEditMode()) {
+
+              <p class="field-hint">
+
+                Les champs laissés vides pourront
+                être complétés par les conditions
+                par défaut configurées dans MargeWeb.
+
+              </p>
+
+            }
+
+          </div>
+
+        </section>
+
+
+        <!-- 07 — NOTES -->
+
+        <section class="editor-card">
+
+          <div class="section-header">
+
+            <div class="section-icon">
+              07
+            </div>
+
+            <div class="section-heading">
+
+              <h2>Notes complémentaires</h2>
+
+              <p>
+                Ajoutez des informations utiles
+                à cette proposition.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div class="section-body">
+
+            <div class="form-grid">
+
+              <div class="field full-width">
+
+                <label for="public-notes">
+                  Notes destinées au client
+                </label>
+
+                <textarea
+                  id="public-notes"
+                  rows="4"
+                  maxlength="20000"
+                  placeholder="Précisions complémentaires à faire apparaître sur le devis..."
+                  [ngModel]="form().publicNotes"
+                  (ngModelChange)="updateForm('publicNotes', $event)"
+                  [disabled]="saving()"
+                ></textarea>
+
+                <small class="field-hint">
+                  Ces informations pourront figurer
+                  sur le document transmis au client.
+                </small>
+
+              </div>
+
+              <div class="field full-width internal-notes">
+
+                <label for="internal-notes">
+
+                  🔒 Notes internes
+
+                  <span class="private-badge">
+                    Privé
+                  </span>
+
+                </label>
+
+                <textarea
+                  id="internal-notes"
+                  rows="4"
+                  maxlength="20000"
+                  placeholder="Informations commerciales, négociations, points à vérifier..."
+                  [ngModel]="form().internalNotes"
+                  (ngModelChange)="updateForm('internalNotes', $event)"
+                  [disabled]="saving()"
+                ></textarea>
+
+                <small class="field-hint">
+
+                  Réservé à la gestion interne
+                  de MargeWeb. Ces notes devront
+                  être exclues du PDF client.
+
+                </small>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+      </div>
+
+
+      <!-- COLONNE RÉCAPITULATIVE -->
+
+      <aside class="editor-summary">
+
+        <div class="summary-sticky">
+
+
+          <!-- RÉCAPITULATIF FINANCIER -->
+
+          <section class="summary-card">
+
+            <div class="summary-header">
+
+              <span class="summary-eyebrow">
+                Proposition commerciale
+              </span>
+
+              <h2>Récapitulatif</h2>
+
+              <p>{{ getQuoteLabel() }}</p>
+
+            </div>
+
+            <div class="summary-body">
+
+              <div class="summary-recipient">
+
+                <span class="small-label">
+                  Destinataire
+                </span>
+
+                <strong>
+                  {{ getRecipientLabel() }}
+                </strong>
+
+              </div>
+
+              <div class="summary-divider"></div>
+
+              <div class="summary-section-title">
+
+                Prestations ponctuelles
+
+                <span>
+                  {{ oneOffItems().length }}
+                </span>
+
+              </div>
+
+              <div class="summary-line">
+
+                <span>Sous-total</span>
+
+                <strong>
+                  {{
+                    formatAmount(
+                      totals().subtotalCents
+                    )
+                  }}
+                </strong>
+
+              </div>
+
+              <div class="summary-line discount-line">
+
+                <span>Remises sur prestations</span>
+
+                <strong>
+
+                  −{{
+                    formatAmount(
+                      totals().itemDiscountsCents
+                    )
+                  }}
+
+                </strong>
+
+              </div>
+
+              <div class="summary-line discount-line">
+
+                <span>Remise globale</span>
+
+                <strong>
+
+                  −{{
+                    formatAmount(
+                      totals().globalDiscountCents
+                    )
+                  }}
+
+                </strong>
+
+              </div>
+
+              <div class="summary-divider"></div>
+
+              <div class="summary-line">
+
+                <span>Total HT</span>
+
+                <strong>
+
+                  {{
+                    formatAmount(
+                      totals().totalExcludingTaxCents
+                    )
+                  }}
+
+                </strong>
+
+              </div>
+
+              <div class="summary-line">
+
+                <span>TVA</span>
+
+                <strong>
+                  {{
+                    formatAmount(totals().taxCents)
+                  }}
+                </strong>
+
+              </div>
+
+              <div class="summary-total">
+
+                <span>
+                  Total ponctuel TTC
+                </span>
+
+                <strong>
+
+                  {{
+                    formatAmount(
+                      totals().totalIncludingTaxCents
+                    )
+                  }}
+
+                </strong>
+
+              </div>
+
+              <p class="tax-mention">
+
+                TVA non applicable,
+                art. 293 B du CGI.
+
+              </p>
+
+
+              <!-- RÉCAPITULATIF RÉCURRENT -->
+
+              @if (recurringItems().length > 0) {
+
+                <div class="summary-divider"></div>
+
+                <div class="summary-section-title">
+
+                  Prestations récurrentes
+
+                  <span>
+                    {{ recurringItems().length }}
+                  </span>
+
+                </div>
+
+                @for (
+                  cycle of billingCycles;
+                  track cycle
+                ) {
+
+                  @if (
+                    totals().recurringByCycle[cycle] > 0
+                  ) {
+
+                    <div class="summary-line">
+
+                      <span>{{ cycle }}</span>
+
+                      <strong>
+
+                        {{
+                          formatAmount(
+                            totals().recurringByCycle[cycle]
+                          )
+                        }}
+
+                        <small>
+                          {{ getBillingLabel(cycle) }}
+                        </small>
+
+                      </strong>
+
+                    </div>
+
+                  }
+
+                }
+
+                <div class="recurring-summary">
+
+                  <span>
+                    Équivalent mensuel
+                  </span>
+
+                  <strong>
+
+                    {{
+                      formatAmount(
+                        totals().recurringMonthlyCents
+                      )
+                    }}
+
+                    <small>/ mois</small>
+
+                  </strong>
+
+                  <div class="annual-summary">
+
+                    {{
+                      formatAmount(
+                        totals().recurringAnnualCents
+                      )
+                    }}
+
+                    annualisés
+
+                  </div>
+
+                </div>
+
+                <p class="summary-hint">
+
+                  Les prestations récurrentes ne
+                  sont pas incluses dans le total
+                  ponctuel TTC. Les montants annualisés
+                  sont indicatifs et ne représentent
+                  pas nécessairement la durée du contrat.
+
+                </p>
+
+              }
+
+            </div>
+
+            <div class="summary-footer">
+
+              <button
+                type="button"
+                class="button button-primary full-button"
+                [disabled]="!canSave()"
+                (click)="save()"
+              >
+
+                @if (saving()) {
+
+                  <span class="spinner"></span>
+
+                  Enregistrement...
+
+                } @else {
+
+                  ✓ Enregistrer le brouillon
+
+                }
+
+              </button>
+
+              <button
+                type="button"
+                class="button button-secondary full-button"
+                [disabled]="saving()"
+                (click)="cancel()"
+              >
+                Annuler
+              </button>
+
+              @if (dirty()) {
+
+                <div class="unsaved-indicator">
+
+                  <span class="status-dot"></span>
+
+                  Modifications non enregistrées
+
+                </div>
+
+              } @else {
+
+                <div class="saved-indicator">
+
+                  <span class="status-dot"></span>
+
+                  Aucune modification en attente
+
+                </div>
+
+              }
+
+            </div>
+
+          </section>
+
+
+          <!-- INFORMATIONS COMPLÉMENTAIRES -->
+
+          <section class="summary-help-card">
+
+            <div class="help-heading">
+
+              <span class="help-icon">i</span>
+
+              <strong>Bon à savoir</strong>
+
+            </div>
+
+            <p>
+
+              Vous pourrez modifier votre brouillon
+              autant de fois que nécessaire avant
+              son émission définitive.
+
+            </p>
+
+            <p>
+
+              Une fois émis, le devis recevra un
+              numéro unique et ne pourra plus
+              être modifié.
+
+            </p>
+
+            <p>
+
+              L'enregistrement d'un devis ne crée
+              ni facture ni abonnement actif.
+
+            </p>
+
+          </section>
+
+        </div>
+
+      </aside>
+
+    </div>
+
+  }
+
+</div>
+
+
+<!-- CONFIRMATION DE SORTIE -->
+
+@if (showLeaveConfirmation()) {
+
+  <div
+    class="modal-backdrop"
+    (click)="closeLeaveConfirmation()"
+  >
+
+    <section
+      class="confirmation-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="leave-confirmation-title"
+      (click)="$event.stopPropagation()"
+    >
+
+      <div class="confirmation-icon">
+        !
+      </div>
+
+      <h2 id="leave-confirmation-title">
+
+        Quitter sans enregistrer ?
+
+      </h2>
+
+      <p>
+
+        Vous avez des modifications non enregistrées.
+        Si vous quittez cette page, elles seront perdues.
+
+      </p>
+
+      <div class="confirmation-actions">
+
+        <button
+          type="button"
+          class="button button-secondary"
+          (click)="closeLeaveConfirmation()"
+        >
+
+          Continuer la modification
+
+        </button>
+
+        <button
+          type="button"
+          class="button button-danger"
+          (click)="confirmLeave()"
+        >
+
+          Quitter sans enregistrer
+
+        </button>
+
+      </div>
+
+    </section>
+
+  </div>
+
+}

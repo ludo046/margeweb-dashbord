@@ -1,8 +1,12 @@
 <div class="pipeline-page">
 
+  <!-- ========================================== -->
+  <!-- EN-TETE -->
+  <!-- ========================================== -->
+
   <header class="page-heading">
 
-    <div>
+    <div class="heading-content">
 
       <span class="eyebrow">
         GESTION COMMERCIALE
@@ -32,43 +36,88 @@
         [disabled]="loading() || moving()"
         (click)="refresh()">
 
-        {{ loading() ? 'Chargement...' : 'Actualiser' }}
+        {{ loading()
+          ? 'Chargement...'
+          : '↻ Actualiser' }}
 
       </button>
 
-      <a routerLink="/prospects/new" class="primary-btn">
+      <a
+        routerLink="/prospects/new"
+        class="primary-btn">
+
         + Nouveau prospect
+
       </a>
 
     </div>
 
   </header>
 
+  <!-- ========================================== -->
+  <!-- MESSAGE D'ERREUR -->
+  <!-- ========================================== -->
+
   @if (error()) {
 
-    <div class="error-message" role="alert">
-      {{ error() }}
+    <div
+      class="error-message"
+      role="alert">
+
+      <span>{{ error() }}</span>
+
+      <button
+        type="button"
+        class="dismiss-error-btn"
+        aria-label="Fermer le message d'erreur"
+        (click)="dismissError()">
+
+        ×
+
+      </button>
+
     </div>
 
   }
 
+  <!-- ========================================== -->
+  <!-- CHARGEMENT -->
+  <!-- ========================================== -->
+
   @if (loading()) {
 
-    <div class="loading-state">
-      Chargement du pipeline commercial...
+    <div
+      class="loading-state"
+      role="status">
+
+      <span class="loading-spinner"></span>
+
+      <p>
+        Chargement du pipeline commercial...
+      </p>
+
     </div>
 
   } @else if (loadError()) {
 
+    <!-- ======================================== -->
+    <!-- ERREUR DE CHARGEMENT -->
+    <!-- ======================================== -->
+
     <div class="loading-state">
 
-      <p class="error-message">
+      <p
+        class="error-message"
+        role="alert">
+
         {{ loadError() }}
+
       </p>
 
       <button
         type="button"
         class="secondary-btn"
+        [disabled]="moving()"
         (click)="refresh()">
 
         Réessayer
@@ -79,19 +128,29 @@
 
   } @else {
 
-    <!-- Anciennes conversions à finaliser -->
+    <!-- ======================================== -->
+    <!-- CONVERSIONS A FINALISER -->
+    <!-- ======================================== -->
 
     @if (pendingConversions().length > 0) {
 
       <div class="conversion-warning">
 
-        <div class="warning-icon">!</div>
+        <div
+          class="warning-icon"
+          aria-hidden="true">
+
+          !
+
+        </div>
 
         <div class="warning-content">
 
           <strong>
+
             {{ pendingConversions().length }}
             conversion(s) à finaliser
+
           </strong>
 
           <p>
@@ -106,7 +165,11 @@
               track prospect.id
             ) {
 
-              <a [routerLink]="['/prospects', prospect.id]">
+              <a
+                [routerLink]="[
+                  '/prospects',
+                  prospect.id
+                ]">
 
                 {{ prospect.name }} →
 
@@ -122,13 +185,105 @@
 
     }
 
-    <!-- Pipeline commercial -->
+    <!-- ======================================== -->
+    <!-- AIDE A L'UTILISATION -->
+    <!-- ======================================== -->
 
-    <div class="kanban-board" cdkDropListGroup>
+    <div class="pipeline-toolbar">
 
-      @for (column of columns(); track column.status) {
+      <div class="pipeline-help desktop-help">
 
-        <section class="kanban-column">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true">
+
+          <path d="M12 3v18"/>
+          <path d="M3 12h18"/>
+          <path d="m9 6 3-3 3 3"/>
+          <path d="m9 18 3 3 3-3"/>
+          <path d="m6 9-3 3 3 3"/>
+          <path d="m18 9 3 3-3 3"/>
+
+        </svg>
+
+        <span>
+          Déplace les cartes ou utilise leur sélecteur de statut.
+        </span>
+
+      </div>
+
+      <div class="pipeline-help mobile-help">
+
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true">
+
+          <path d="M3 12h18"/>
+          <path d="m7 8-4 4 4 4"/>
+          <path d="m17 8 4 4-4 4"/>
+
+        </svg>
+
+        <span>
+          Fais défiler les colonnes horizontalement.
+        </span>
+
+      </div>
+
+      @if (moving()) {
+
+        <div
+          class="pipeline-saving"
+          role="status"
+          aria-live="polite">
+
+          <span class="small-spinner"></span>
+
+          Enregistrement...
+
+        </div>
+
+      }
+
+    </div>
+
+    <!-- ======================================== -->
+    <!-- PIPELINE COMMERCIAL -->
+    <!-- ======================================== -->
+
+    <div
+      class="kanban-board"
+      role="region"
+      aria-label="Colonnes du pipeline commercial"
+      tabindex="0"
+      cdkDropListGroup>
+
+      @for (
+        column of columns();
+        track column.status
+      ) {
+
+        <section
+          class="kanban-column"
+          [attr.aria-label]="column.status">
+
+          <!-- ================================== -->
+          <!-- EN-TETE DE COLONNE -->
+          <!-- ================================== -->
 
           <header
             class="column-header"
@@ -138,49 +293,138 @@
 
               <span
                 class="status-dot"
-                [style.background]="column.color">
+                [style.background]="column.color"
+                aria-hidden="true">
               </span>
 
               <h2>{{ column.status }}</h2>
 
             </div>
 
-            <span class="column-count">
+            <span
+              class="column-count"
+              [attr.aria-label]="
+                column.prospects.length + ' prospects'
+              ">
+
               {{ column.prospects.length }}
+
             </span>
 
           </header>
+
+          <!-- ================================== -->
+          <!-- CONTENU DE COLONNE -->
+          <!-- ================================== -->
 
           <div
             class="column-content"
             cdkDropList
             [cdkDropListData]="column.prospects"
             [cdkDropListSortingDisabled]="true"
-            [cdkDropListDisabled]="moving()"
-            (cdkDropListDropped)="drop($event, column.status)">
+            [cdkDropListDisabled]="actionsDisabled()"
+            (cdkDropListDropped)="drop(
+              $event,
+              column.status
+            )">
 
             @for (
               prospect of column.prospects;
               track prospect.id
             ) {
 
+              <!-- ============================== -->
+              <!-- CARTE PROSPECT -->
+              <!-- ============================== -->
+
               <article
                 class="prospect-card"
+                [class.card-moving]="
+                  isMovingProspect(prospect.id)
+                "
+                [attr.aria-busy]="
+                  isMovingProspect(prospect.id)
+                "
                 cdkDrag
                 [cdkDragData]="prospect"
-                [cdkDragDisabled]="moving()">
+                [cdkDragDisabled]="
+                  !canMoveProspect(prospect)
+                ">
 
-                <a
-                  class="prospect-name"
-                  [routerLink]="['/prospects', prospect.id]">
+                <!-- EN-TETE DE LA CARTE -->
 
-                  {{ prospect.name }}
+                <div class="card-header">
 
-                </a>
+                  <a
+                    class="prospect-name"
+                    [routerLink]="[
+                      '/prospects',
+                      prospect.id
+                    ]">
+
+                    {{ prospect.name }}
+
+                  </a>
+
+                  <span
+                    class="drag-handle"
+                    cdkDragHandle
+                    title="Déplacer le prospect"
+                    aria-hidden="true">
+
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="currentColor">
+
+                      <circle cx="9" cy="5" r="1.5"/>
+                      <circle cx="15" cy="5" r="1.5"/>
+
+                      <circle cx="9" cy="12" r="1.5"/>
+                      <circle cx="15" cy="12" r="1.5"/>
+
+                      <circle cx="9" cy="19" r="1.5"/>
+                      <circle cx="15" cy="19" r="1.5"/>
+
+                    </svg>
+
+                  </span>
+
+                </div>
+
+                <!-- LOCALISATION -->
 
                 <p class="location">
-                  {{ prospect.location || 'Non renseignée' }}
+
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true">
+
+                    <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/>
+                    <circle cx="12" cy="10" r="3"/>
+
+                  </svg>
+
+                  <span>
+
+                    {{ prospect.location ||
+                      'Non renseignée' }}
+
+                  </span>
+
                 </p>
+
+                <!-- ============================ -->
+                <!-- POTENTIEL COMMERCIAL -->
+                <!-- ============================ -->
 
                 @if (
                   prospect.creationQuote != null ||
@@ -189,28 +433,41 @@
 
                   <div class="card-financial">
 
-                    @if (prospect.creationQuote != null) {
+                    @if (
+                      prospect.creationQuote != null
+                    ) {
 
                       <div>
 
-                        <small>Création estimée</small>
+                        <small>
+                          Création estimée
+                        </small>
 
                         <strong>
+
                           {{ prospect.creationQuote }} €
+
                         </strong>
 
                       </div>
 
                     }
 
-                    @if (prospect.monthlySubscription != null) {
+                    @if (
+                      prospect.monthlySubscription != null
+                    ) {
 
                       <div>
 
-                        <small>Abonnement estimé</small>
+                        <small>
+                          Abonnement estimé
+                        </small>
 
                         <strong>
-                          {{ prospect.monthlySubscription }} €/m
+
+                          {{ prospect.monthlySubscription }}
+                          €/m
+
                         </strong>
 
                       </div>
@@ -221,11 +478,112 @@
 
                 }
 
+                <!-- ============================ -->
+                <!-- PROCHAINE RELANCE -->
+                <!-- ============================ -->
+
                 @if (prospect.nextFollowUp) {
 
                   <div class="followup">
 
-                    Relance : {{ prospect.nextFollowUp }}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.7"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true">
+
+                      <circle cx="12" cy="12" r="9"/>
+                      <path d="M12 7v5l3 2"/>
+
+                    </svg>
+
+                    <span>
+
+                      Relance :
+                      {{ prospect.nextFollowUp }}
+
+                    </span>
+
+                  </div>
+
+                }
+
+                <!-- ============================ -->
+                <!-- CHANGEMENT DE STATUT -->
+                <!-- ============================ -->
+
+                <div class="card-status">
+
+                  <label
+                    [attr.for]="
+                      'pipeline-status-' + prospect.id
+                    ">
+
+                    Statut commercial
+
+                  </label>
+
+                  <select
+                    #statusSelect
+                    [id]="
+                      'pipeline-status-' + prospect.id
+                    "
+                    class="status-select"
+                    [value]="prospect.status"
+                    [attr.data-status]="prospect.status"
+                    [attr.aria-label]="
+                      'Statut commercial de ' +
+                      prospect.name
+                    "
+                    [disabled]="
+                      !canMoveProspect(prospect)
+                    "
+                    (change)="
+                      changeStatus(
+                        prospect,
+                        statusSelect.value
+                      );
+                      statusSelect.value = prospect.status
+                    ">
+
+                    @for (
+                      stage of stages;
+                      track stage.status
+                    ) {
+
+                      <option
+                        [value]="stage.status">
+
+                        {{ stage.status }}
+
+                      </option>
+
+                    }
+
+                  </select>
+
+                </div>
+
+                <!-- ============================ -->
+                <!-- ENREGISTREMENT -->
+                <!-- ============================ -->
+
+                @if (
+                  isMovingProspect(prospect.id)
+                ) {
+
+                  <div
+                    class="card-saving"
+                    role="status">
+
+                    <span class="small-spinner"></span>
+
+                    Déplacement en cours...
 
                   </div>
 
@@ -235,8 +593,43 @@
 
             } @empty {
 
+              <!-- ============================== -->
+              <!-- COLONNE VIDE -->
+              <!-- ============================== -->
+
               <div class="empty-column">
-                Aucun prospect
+
+                <svg
+                  width="30"
+                  height="30"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true">
+
+                  <rect
+                    x="4"
+                    y="4"
+                    width="16"
+                    height="16"
+                    rx="3"/>
+
+                  <path d="M12 8v8"/>
+                  <path d="M8 12h8"/>
+
+                </svg>
+
+                <strong>
+                  Aucun prospect
+                </strong>
+
+                <span class="empty-column-hint">
+                  Déplace une opportunité ici
+                </span>
+
               </div>
 
             }

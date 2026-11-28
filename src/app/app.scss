@@ -1,4 +1,3 @@
-
 $navy: #111d35;
 $navy-light: #1b2c4b;
 $accent: #15b8a6;
@@ -6,42 +5,103 @@ $background: #f3f6fb;
 $text: #17243b;
 $muted: #8190a6;
 
+$mobile-breakpoint: 1024px;
+$mobile-header-height: 64px;
+
+// ==========================================
+// STRUCTURE GENERALE
+// ==========================================
+
 :host {
   display: block;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: Arial, sans-serif;
   color: $text;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 .app-layout {
   display: flex;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background: $background;
 }
 
+// ==========================================
+// SIDEBAR
+// ==========================================
+
 .sidebar {
+  position: sticky;
+  top: 0;
+
   width: 250px;
+  height: 100vh;
+  height: 100dvh;
+
   flex-shrink: 0;
+
   background: $navy;
   color: white;
+
   padding: 30px 18px;
+
   display: flex;
   flex-direction: column;
+
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  scrollbar-width: thin;
+  scrollbar-color: $navy-light transparent;
 }
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+
+  margin-bottom: 42px;
+}
+
+// ==========================================
+// IDENTITE VISUELLE
+// ==========================================
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 12px 42px;
+
+  min-width: 0;
+  padding: 0 12px;
+
+  color: white;
+  text-decoration: none;
 
   strong {
     display: block;
     font-size: 21px;
+    line-height: 1.2;
   }
 
   small {
+    display: block;
+    margin-top: 3px;
+
     color: #8ca0bd;
+    font-size: 11px;
     letter-spacing: 3px;
   }
 }
@@ -49,24 +109,53 @@ $muted: #8190a6;
 .brand-icon {
   display: grid;
   place-items: center;
+
   width: 43px;
   height: 43px;
+
+  flex-shrink: 0;
+
   border-radius: 12px;
   background: $accent;
+
+  color: white;
   font-size: 24px;
   font-weight: 800;
 }
 
+// ==========================================
+// NAVIGATION PRINCIPALE
+// ==========================================
+
 .navigation {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 7px;
 
+  min-width: 0;
+
   a {
-    padding: 15px 17px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    min-width: 0;
+    min-height: 52px;
+
+    padding: 12px 14px;
+
+    border-left: 3px solid transparent;
     border-radius: 10px;
+
     color: #a9b7ce;
     text-decoration: none;
-    transition: 0.2s;
+    font-size: 14px;
+
+    transition:
+      background 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
 
     &:hover,
     &.active {
@@ -75,28 +164,104 @@ $muted: #8190a6;
     }
 
     &.active {
-      border-left: 3px solid $accent;
+      border-left-color: $accent;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $accent;
+      outline-offset: 2px;
     }
   }
 }
 
-.sidebar-footer {
-  margin-top: auto;
-  padding: 20px 12px 0;
-  font-size: 12px;
-  color: #8190a6;
+.nav-link-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  min-width: 0;
 }
 
-.main-content {
-  flex: 1;
+.nav-label {
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 26px;
+
+  flex-shrink: 0;
+
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+.notification-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 23px;
+  height: 23px;
+
+  flex-shrink: 0;
+
+  padding: 0 6px;
+
+  background: #ef4444;
+  color: white;
+
+  border-radius: 7px;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+// ==========================================
+// PIED DE SIDEBAR
+// ==========================================
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 30px 12px 0;
+
+  flex-shrink: 0;
+
+  font-size: 12px;
+  color: $muted;
+}
+
+// ==========================================
+// CONTENU PRINCIPAL
+// ==========================================
+
+.main-content {
+  flex: 1 1 0%;
+
+  width: 100%;
+  min-width: 0;
+
   padding: 40px;
 }
+
+// ==========================================
+// ANCIENS STYLES TOPBAR
+// ==========================================
 
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+
   margin-bottom: 35px;
 
   h1 {
@@ -118,34 +283,479 @@ $muted: #8190a6;
 }
 
 .avatar {
-  width: 48px;
-  height: 48px;
   display: grid;
   place-items: center;
+
+  width: 48px;
+  height: 48px;
+
+  flex-shrink: 0;
+
   border-radius: 50%;
   background: $navy;
   color: white;
   font-weight: 700;
 }
 
-.main-content {
-  min-width: 0;
+// ==========================================
+// ELEMENTS EXCLUSIFS AU MOBILE
+// ==========================================
+
+.mobile-header,
+.sidebar-close,
+.sidebar-overlay {
+  display: none;
 }
 
-.notification-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 23px;
-  height: 23px;
-  padding: 0 6px;
-  margin-left: 10px;
-  background: #ef4444;
-  color: white;
-  border-radius: 7px;
-  font-size: 11px;
-  font-weight: 700;
+// ==========================================
+// ORDINATEURS PORTABLES
+// ==========================================
+
+@media (max-width: 1440px) {
+
+  .sidebar {
+    width: 230px;
+    padding: 26px 14px;
+  }
+
+  .main-content {
+    padding: 28px;
+  }
+
 }
-.icon{
-  font-size: 1.5rem;
+
+// ==========================================
+// TABLETTES ET MOBILES
+// ==========================================
+
+@media (max-width: $mobile-breakpoint) {
+
+  .app-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  // BARRE SUPERIEURE
+
+  .mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    width: 100%;
+    min-height: $mobile-header-height;
+
+    padding: 10px 20px;
+
+    background: $navy;
+    color: white;
+
+    box-shadow: 0 3px 12px rgba(17, 29, 53, 0.15);
+  }
+
+  // BOUTON HAMBURGER
+
+  .mobile-menu-toggle {
+    display: grid;
+    place-items: center;
+
+    width: 44px;
+    height: 44px;
+
+    flex-shrink: 0;
+
+    padding: 0;
+
+    border: 0;
+    border-radius: 10px;
+
+    background: $navy-light;
+    color: white;
+
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid $accent;
+      outline-offset: 2px;
+    }
+  }
+
+  .hamburger {
+    position: relative;
+
+    display: block;
+
+    width: 22px;
+    height: 18px;
+
+    span {
+      position: absolute;
+      left: 0;
+
+      display: block;
+
+      width: 100%;
+      height: 2px;
+
+      border-radius: 2px;
+      background: currentColor;
+
+      transition:
+        transform 0.25s ease,
+        opacity 0.2s ease;
+
+      &:nth-child(1) {
+        top: 0;
+      }
+
+      &:nth-child(2) {
+        top: 8px;
+      }
+
+      &:nth-child(3) {
+        top: 16px;
+      }
+    }
+
+    &.is-open {
+
+      span:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+      }
+
+      span:nth-child(2) {
+        opacity: 0;
+      }
+
+      span:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
+      }
+    }
+  }
+
+  // LOGO MOBILE
+
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    min-width: 0;
+
+    color: white;
+    text-decoration: none;
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+
+      border-radius: 9px;
+      font-size: 21px;
+    }
+
+    strong {
+      display: block;
+
+      font-size: 17px;
+      line-height: 1.2;
+    }
+
+    small {
+      display: block;
+      margin-top: 2px;
+
+      color: #8ca0bd;
+      font-size: 9px;
+      letter-spacing: 2px;
+    }
+  }
+
+  // NOTIFICATIONS MOBILES
+
+  .mobile-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-left: auto;
+
+    flex-shrink: 0;
+  }
+
+  .mobile-notification {
+    position: relative;
+
+    display: grid;
+    place-items: center;
+
+    width: 44px;
+    height: 44px;
+
+    border-radius: 10px;
+
+    background: $navy-light;
+    color: white;
+
+    text-decoration: none;
+    font-size: 20px;
+
+    &:focus-visible {
+      outline: 2px solid $accent;
+      outline-offset: 2px;
+    }
+  }
+
+  .mobile-notification-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 19px;
+    height: 19px;
+
+    padding: 0 4px;
+
+    border: 2px solid $navy;
+    border-radius: 20px;
+
+    background: #ef4444;
+    color: white;
+
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  // SIDEBAR MOBILE
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1200;
+
+    width: 290px;
+    max-width: calc(100vw - 32px);
+
+    height: 100vh;
+    height: 100dvh;
+
+    padding: 24px 16px;
+
+    visibility: hidden;
+    pointer-events: none;
+
+    transform: translateX(-100%);
+
+    transition:
+      transform 0.28s ease,
+      visibility 0s linear 0.28s;
+
+    &.mobile-open {
+      visibility: visible;
+      pointer-events: auto;
+
+      transform: translateX(0);
+
+      transition:
+        transform 0.28s ease,
+        visibility 0s;
+
+      box-shadow: 10px 0 40px rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  .sidebar-header {
+    margin-bottom: 30px;
+  }
+
+  .sidebar-close {
+    display: grid;
+    place-items: center;
+
+    width: 40px;
+    height: 40px;
+
+    flex-shrink: 0;
+
+    padding: 0;
+
+    border: 0;
+    border-radius: 9px;
+
+    background: $navy-light;
+    color: white;
+
+    cursor: pointer;
+
+    &:hover {
+      background: #293d60;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $accent;
+      outline-offset: 2px;
+    }
+  }
+
+  // FOND SEMI-TRANSPARENT
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+
+    display: block;
+
+    background: rgba(10, 18, 35, 0.6);
+
+    animation: overlay-in 0.25s ease;
+  }
+
+  // CONTENU PRINCIPAL
+
+  .main-content {
+    flex: 1 1 auto;
+
+    width: 100%;
+    min-width: 0;
+
+    padding: 24px;
+  }
+
+}
+
+// ==========================================
+// SMARTPHONES
+// ==========================================
+
+@media (max-width: 767px) {
+
+  .mobile-header {
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+
+    h1 {
+      font-size: 26px;
+    }
+  }
+
+}
+
+// ==========================================
+// PETITS SMARTPHONES
+// ==========================================
+
+@media (max-width: 480px) {
+
+  .mobile-header {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .mobile-brand {
+    gap: 7px;
+
+    strong {
+      font-size: 16px;
+    }
+
+    small {
+      font-size: 8px;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      font-size: 19px;
+    }
+  }
+
+  .mobile-header-actions {
+    gap: 6px;
+  }
+
+  .main-content {
+    padding: 12px;
+  }
+
+  .topbar {
+
+    h1 {
+      font-size: 23px;
+    }
+  }
+
+}
+
+// ==========================================
+// ECRANS TRES ETROITS
+// ==========================================
+
+@media (max-width: 360px) {
+
+  .mobile-brand {
+
+    .brand-icon {
+      display: none;
+    }
+  }
+
+  .mobile-header {
+    padding-inline: 10px;
+  }
+
+  .main-content {
+    padding: 10px;
+  }
+
+}
+
+// ==========================================
+// ANIMATIONS
+// ==========================================
+
+@keyframes overlay-in {
+
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+
+}
+
+// ==========================================
+// ACCESSIBILITE
+// ==========================================
+
+@media (prefers-reduced-motion: reduce) {
+
+  .sidebar,
+  .navigation a,
+  .hamburger span {
+    transition: none;
+  }
+
+  .sidebar-overlay {
+    animation: none;
+  }
+
 }

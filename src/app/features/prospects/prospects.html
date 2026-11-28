@@ -1,13 +1,23 @@
 <section class="prospects-page">
 
+  <!-- ========================================== -->
+  <!-- EN-TÊTE                                    -->
+  <!-- ========================================== -->
+
   <header class="page-heading">
 
-    <div>
-      <span class="eyebrow">GESTION COMMERCIALE</span>
+    <div class="heading-content">
+
+      <span class="eyebrow">
+        GESTION COMMERCIALE
+      </span>
 
       <h2>Mes prospects</h2>
 
-      <p>Retrouve toutes tes opportunités commerciales.</p>
+      <p>
+        Retrouve toutes tes opportunités commerciales.
+      </p>
+
     </div>
 
     <div class="header-actions">
@@ -30,15 +40,21 @@
 
       </button>
 
-      <a routerLink="/prospects/new" class="primary-btn">
+      <a
+        routerLink="/prospects/new"
+        class="primary-btn">
+
         + Nouveau prospect
+
       </a>
 
     </div>
 
   </header>
 
-  <!-- Recherche et filtres -->
+  <!-- ========================================== -->
+  <!-- RECHERCHE ET FILTRES                        -->
+  <!-- ========================================== -->
 
   <div class="toolbar">
 
@@ -67,23 +83,29 @@
 
   </div>
 
-  <!-- Chargement -->
+  <!-- ========================================== -->
+  <!-- CHARGEMENT                                 -->
+  <!-- ========================================== -->
 
   @if (loading()) {
 
-    <div class="table-container">
+    <div class="table-container state-container">
 
-      <div class="empty">
+      <div class="empty" role="status">
+
         Chargement des prospects...
+
       </div>
 
     </div>
 
   } @else if (error()) {
 
-    <!-- Erreur de chargement -->
+    <!-- ======================================== -->
+    <!-- ERREUR                                   -->
+    <!-- ======================================== -->
 
-    <div class="table-container">
+    <div class="table-container state-container">
 
       <div class="list-error">
 
@@ -108,36 +130,62 @@
 
   } @else {
 
-    <!-- Liste des prospects -->
+    <!-- ======================================== -->
+    <!-- LISTE DES PROSPECTS                       -->
+    <!-- ======================================== -->
 
     <div class="table-container">
 
-      <table>
+      <table
+        class="prospects-table"
+        role="table"
+        aria-label="Liste des prospects">
 
-        <thead>
+        <thead role="rowgroup">
 
-          <tr>
-            <th>Course / Organisation</th>
-            <th>Localisation</th>
-            <th>E-mail</th>
-            <th>Statut</th>
-            <th>Actions</th>
+          <tr role="row">
+
+            <th scope="col" role="columnheader">
+              Course / Organisation
+            </th>
+
+            <th scope="col" role="columnheader">
+              Localisation
+            </th>
+
+            <th scope="col" role="columnheader">
+              E-mail
+            </th>
+
+            <th scope="col" role="columnheader">
+              Statut
+            </th>
+
+            <th scope="col" role="columnheader">
+              Actions
+            </th>
+
           </tr>
 
         </thead>
 
-        <tbody>
+        <tbody role="rowgroup">
 
           @for (
             prospect of filteredProspects();
             track prospect.id
           ) {
 
-            <tr>
+            <tr class="prospect-row" role="row">
 
-              <td class="name">
+              <!-- NOM -->
 
-                <a [routerLink]="['/prospects', prospect.id]">
+              <td
+                class="name name-cell"
+                role="cell">
+
+                <a
+                  [routerLink]="['/prospects', prospect.id]">
 
                   {{ prospect.name }}
 
@@ -145,15 +193,116 @@
 
               </td>
 
-              <td>
-                {{ prospect.location || '—' }}
+              <!-- LOCALISATION -->
+
+              <td
+                class="location-cell"
+                role="cell">
+
+                <span
+                  class="mobile-cell-label"
+                  aria-hidden="true">
+
+                  Localisation
+
+                </span>
+
+                <div class="cell-value">
+
+                  <span
+                    class="mobile-cell-icon"
+                    aria-hidden="true">
+
+                    <svg
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+
+                      <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/>
+
+                      <circle cx="12" cy="10" r="2.5"/>
+
+                    </svg>
+
+                  </span>
+
+                  <span>
+                    {{ prospect.location || '—' }}
+                  </span>
+
+                </div>
+
               </td>
 
-              <td>
-                {{ prospect.email || '—' }}
+              <!-- E-MAIL -->
+
+              <td
+                class="email-cell"
+                role="cell">
+
+                <span
+                  class="mobile-cell-label"
+                  aria-hidden="true">
+
+                  E-mail
+
+                </span>
+
+                <div class="cell-value">
+
+                  <span
+                    class="mobile-cell-icon"
+                    aria-hidden="true">
+
+                    <svg
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+
+                      <rect
+                        x="3"
+                        y="5"
+                        width="18"
+                        height="14"
+                        rx="2"/>
+
+                      <path d="m3 7 9 6 9-6"/>
+
+                    </svg>
+
+                  </span>
+
+                  <span>
+                    {{ prospect.email || '—' }}
+                  </span>
+
+                </div>
+
               </td>
 
-              <td>
+              <!-- STATUT -->
+
+              <td
+                class="status-cell"
+                role="cell">
+
+                <span
+                  class="mobile-cell-label"
+                  aria-hidden="true">
+
+                  Statut commercial
+
+                </span>
 
                 @if (prospect.status === 'Client') {
 
@@ -170,6 +319,7 @@
                   <select
                     class="status-select"
                     [attr.aria-label]="'Statut de ' + prospect.name"
+                    [attr.data-status]="prospect.status"
                     [ngModel]="prospect.status"
                     (ngModelChange)="updateStatus(
                       prospect.id,
@@ -195,11 +345,16 @@
 
               </td>
 
-              <td>
+              <!-- ACTIONS -->
+
+              <td
+                class="actions-cell"
+                role="cell">
 
                 <a
                   class="detail-btn"
-                  [routerLink]="['/prospects', prospect.id]">
+                  [routerLink]="['/prospects', prospect.id]"
+                  [attr.aria-label]="'Voir la fiche de ' + prospect.name">
 
                   Voir la fiche →
 
@@ -211,9 +366,12 @@
 
           } @empty {
 
-            <tr>
+            <tr class="empty-row" role="row">
 
-              <td colspan="5" class="empty">
+              <td
+                colspan="5"
+                class="empty"
+                role="cell">
 
                 @if (search() || statusFilter() !== 'Tous') {
 

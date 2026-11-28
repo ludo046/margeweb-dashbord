@@ -1,87 +1,248 @@
+$navy: #111d35;
+$accent: #15b8a6;
+$accent-dark: #087f73;
+$text: #17243b;
+$muted: #8190a6;
+$border: #e2e8f0;
+$surface: #ffffff;
+$surface-light: #f8fafc;
+
+// ==========================================
+// STRUCTURE GENERALE
+// ==========================================
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+// ==========================================
+// OVERLAY
+// ==========================================
 
 .mail-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1100;
-  background: rgba(17, 29, 53, .55);
+
+  z-index: 1600;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+
+  padding: 24px;
+
+  background: rgba(17, 29, 53, 0.55);
+
   backdrop-filter: blur(3px);
+
+  overscroll-behavior: contain;
 }
 
+// ==========================================
+// FENETRE PRINCIPALE
+// ==========================================
+
 .mail-modal {
+  display: flex;
+  flex-direction: column;
+
   width: 760px;
+  min-width: 0;
   max-width: 100%;
-  max-height: 95vh;
-  overflow-y: auto;
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 20px 70px rgba(17, 29, 53, .25);
-  color: #17243b;
+
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+
+  overflow: hidden;
+
+  background: $surface;
+  color: $text;
+
+  border-radius: 16px;
+
+  box-shadow: 0 20px 70px rgba(17, 29, 53, 0.25);
+
+  overflow-wrap: anywhere;
+
+  > form {
+    display: flex;
+    flex-direction: column;
+
+    flex: 1 1 auto;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+
+    overflow: hidden;
+  }
 }
+
+// ==========================================
+// EN-TETE
+// ==========================================
 
 .mail-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #111d35;
+  gap: 16px;
+
+  flex-shrink: 0;
+
+  padding: 16px 25px;
+
+  background: $navy;
   color: white;
-  padding: 20px 25px;
 
   h2 {
-    font-size: 18px;
+    flex: 1;
+
+    min-width: 0;
+
     margin: 0;
+
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
   }
 }
+
+// ==========================================
+// BOUTON DE FERMETURE
+// ==========================================
 
 .close-btn {
-  border: none;
+  display: grid;
+  place-items: center;
+
+  width: 40px;
+  height: 40px;
+
+  flex-shrink: 0;
+
+  padding: 0;
+
   background: transparent;
   color: white;
-  font-size: 26px;
+
+  border: 0;
+  border-radius: 8px;
+
+  font-size: 28px;
+  line-height: 1;
+
   cursor: pointer;
 
+  transition: background 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
   &:disabled {
-    opacity: .5;
+    opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
   }
 }
 
+// ==========================================
+// ZONE DE REDACTION
+// ==========================================
+
 .mail-fields {
-  padding: 25px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+
+  flex: 1 1 auto;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  padding: 25px;
+
+  overflow-y: auto;
+
+  overscroll-behavior: contain;
+
+  scrollbar-width: thin;
+
+  scroll-padding-block: 16px;
 }
+
+// ==========================================
+// CHAMPS DU FORMULAIRE
+// ==========================================
 
 .mail-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
 
+  flex-shrink: 0;
+
+  width: 100%;
+  min-width: 0;
+
   label {
-    font-size: 12px;
-    font-weight: 600;
     color: #64748b;
+
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
   }
 
   input,
   textarea {
+    display: block;
+
+    box-sizing: border-box;
+
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    min-height: 44px;
+
     padding: 12px 14px;
-    border: 1px solid #e2e8f0;
+
+    background: $surface;
+    color: $text;
+
+    border: 1px solid $border;
     border-radius: 8px;
-    color: #17243b;
-    background: white;
-    font: inherit;
+
+    font-family: inherit;
     font-size: 14px;
-    outline-color: #15b8a6;
+    line-height: 1.5;
+
+    transition: border-color 0.2s ease;
+
+    &:focus {
+      border-color: $accent;
+
+      outline: 2px solid $accent;
+      outline-offset: 1px;
+    }
 
     &:disabled {
-      background: #f8fafc;
+      background: $surface-light;
+
       cursor: not-allowed;
+    }
+
+    &::placeholder {
+      color: $muted;
     }
   }
 
@@ -90,30 +251,50 @@
     color: #64748b;
   }
 
+  input.ng-invalid.ng-touched,
+  textarea.ng-invalid.ng-touched {
+    border-color: #dc2626;
+  }
+
   textarea {
-    resize: vertical;
     min-height: 220px;
+
+    resize: vertical;
+
     line-height: 1.7;
+
+    overflow-wrap: anywhere;
   }
 }
 
-// État de la sauvegarde
+// ==========================================
+// ETAT DE LA SAUVEGARDE
+// ==========================================
 
 .save-status {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  min-height: 20px;
+
+  flex-shrink: 0;
+
+  min-width: 0;
+  min-height: 24px;
+
+  color: #64748b;
+
   font-size: 12px;
-  color: #8190a6;
+  line-height: 1.5;
+
+  overflow-wrap: anywhere;
 
   &.saved {
-    color: #087f73;
+    color: $accent-dark;
   }
 
   &.pending {
-    color: #8190a6;
+    color: #64748b;
   }
 
   &.saving {
@@ -128,10 +309,15 @@
 .save-icon {
   display: grid;
   place-items: center;
-  width: 17px;
-  height: 17px;
+
+  width: 18px;
+  height: 18px;
+
+  flex-shrink: 0;
+
   border: 1px solid currentColor;
   border-radius: 50%;
+
   font-size: 11px;
   font-weight: 700;
 }
@@ -139,154 +325,607 @@
 .save-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
-  background: currentColor;
+
+  flex-shrink: 0;
+
   margin: 0 5px;
+
+  background: currentColor;
+
+  border-radius: 50%;
 }
 
 .save-spinner {
-  width: 15px;
-  height: 15px;
-  border: 2px solid #e2e8f0;
-  border-top-color: #15b8a6;
+  width: 16px;
+  height: 16px;
+
+  flex-shrink: 0;
+
+  border: 2px solid $border;
+  border-top-color: $accent;
   border-radius: 50%;
-  animation: spin .8s linear infinite;
+
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
+
   to {
     transform: rotate(360deg);
   }
+
 }
 
+// ==========================================
+// NOUVELLE TENTATIVE DE SAUVEGARDE
+// ==========================================
+
 .retry-btn {
-  border: none;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 36px;
+
+  padding: 6px 10px;
+
+  background: #fef2f2;
   color: #b91c1c;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
+
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
   cursor: pointer;
 
+  &:hover:not(:disabled) {
+    background: #fee2e2;
+  }
+
   &:disabled {
-    opacity: .5;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 }
 
-// Pied de la fenêtre
+// ==========================================
+// MESSAGES D'ERREUR
+// ==========================================
+
+.mail-error {
+  flex-shrink: 0;
+
+  min-width: 0;
+
+  padding: 14px;
+
+  background: #fef2f2;
+  color: #b91c1c;
+
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+
+  font-size: 13px;
+  line-height: 1.6;
+
+  overflow-wrap: anywhere;
+}
+
+// ==========================================
+// PIED DE LA FENETRE
+// ==========================================
 
 .mail-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 20px 25px;
-  border-top: 1px solid #e2e8f0;
+
+  flex-shrink: 0;
+
+  width: 100%;
+  min-width: 0;
+
+  padding: 18px 25px;
+
+  background: $surface;
+
+  border-top: 1px solid $border;
+
+  box-shadow: 0 -4px 16px rgba(17, 29, 53, 0.04);
 }
 
 .footer-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 12px;
+
+  min-width: 0;
 }
+
+// ==========================================
+// BOUTONS COMMUNS
+// ==========================================
 
 .primary-btn,
 .secondary-btn,
 .delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+
   padding: 12px 20px;
+
+  border: 1px solid transparent;
   border-radius: 8px;
+
+  font-family: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.4;
+
+  text-align: center;
+
   cursor: pointer;
 
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+
   &:disabled {
-    opacity: .5;
+    opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent-dark;
+    outline-offset: 3px;
   }
 }
 
+// ==========================================
+// BOUTON ENVOYER
+// ==========================================
+
 .primary-btn {
-  background: #15b8a6;
-  color: #111d35;
-  border: 1px solid #15b8a6;
+  background: $accent;
+  color: $navy;
+
+  border-color: $accent;
 
   &:hover:not(:disabled) {
     background: #11a897;
+    border-color: #11a897;
   }
 }
+
+// ==========================================
+// BOUTON FERMER
+// ==========================================
 
 .secondary-btn {
-  background: white;
-  color: #17243b;
-  border: 1px solid #e2e8f0;
+  background: $surface;
+  color: $text;
+
+  border-color: $border;
 
   &:hover:not(:disabled) {
-    background: #f8fafc;
+    background: $surface-light;
+    border-color: #cbd5e1;
   }
 }
 
+// ==========================================
+// BOUTON SUPPRIMER
+// ==========================================
+
 .delete-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: transparent;
-  color: #8190a6;
-  border: 1px solid transparent;
   padding: 10px 12px;
+
+  background: transparent;
+  color: #64748b;
+
+  svg {
+    flex-shrink: 0;
+  }
 
   &:hover:not(:disabled) {
     background: #fef2f2;
     color: #b91c1c;
+
+    border-color: #fecaca;
   }
 }
 
-.mail-error {
-  background: #fef2f2;
-  color: #b91c1c;
-  padding: 14px;
-  border-radius: 8px;
-  font-size: 13px;
+// ==========================================
+// ACCESSIBILITE
+// ==========================================
+
+.retry-btn {
+
+  &:focus-visible {
+    outline: 2px solid $accent-dark;
+    outline-offset: 3px;
+  }
+
 }
 
-// Responsive
+// ==========================================
+// RESPONSIVE - TABLETTES
+// ==========================================
 
-@media (max-width: 600px) {
+@media (max-width: 850px) {
 
   .mail-overlay {
-    padding: 10px;
+    padding: 16px;
+  }
+
+  .mail-modal {
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
   }
 
   .mail-header {
-    padding: 16px;
+    padding: 14px 20px;
   }
 
   .mail-fields {
-    padding: 16px;
+    padding: 20px;
+
+    gap: 16px;
   }
 
   .mail-footer {
-    padding: 16px;
+    padding: 16px 20px;
+  }
+
+}
+
+// ==========================================
+// RESPONSIVE - SMARTPHONES
+// ==========================================
+
+@media (max-width: 600px) {
+
+  // COMPOSITEUR PLEIN ECRAN
+
+  .mail-overlay {
+    align-items: stretch;
+    justify-content: stretch;
+
+    padding: 0;
+
+    background: $surface;
+
+    backdrop-filter: none;
+  }
+
+  .mail-modal {
+    width: 100%;
+    max-width: 100%;
+
+    height: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+
+    border-radius: 0;
+
+    box-shadow: none;
+  }
+
+  // EN-TETE
+
+  .mail-header {
+    gap: 12px;
+
+    padding: 10px 16px;
+
+    padding-top: max(
+      10px,
+      env(safe-area-inset-top)
+    );
+
+    padding-left: max(
+      16px,
+      env(safe-area-inset-left)
+    );
+
+    padding-right: max(
+      16px,
+      env(safe-area-inset-right)
+    );
+
+    h2 {
+      font-size: 17px;
+    }
+  }
+
+  .close-btn {
+    width: 44px;
+    height: 44px;
+
+    font-size: 28px;
+  }
+
+  // ZONE DE REDACTION
+
+  .mail-fields {
+    gap: 14px;
+
+    padding: 18px 16px;
+
+    padding-left: max(
+      16px,
+      env(safe-area-inset-left)
+    );
+
+    padding-right: max(
+      16px,
+      env(safe-area-inset-right)
+    );
+  }
+
+  // CHAMPS
+
+  .mail-field {
+    gap: 6px;
+
+    label {
+      font-size: 12px;
+    }
+
+    input,
+    textarea {
+      min-height: 46px;
+
+      padding: 12px;
+
+      font-size: 16px;
+    }
+
+    textarea {
+      min-height: 240px;
+
+      resize: none;
+
+      line-height: 1.6;
+    }
+  }
+
+  // ETAT DE SAUVEGARDE
+
+  .save-status {
+    padding: 10px 12px;
+
+    background: $surface-light;
+
+    border: 1px solid $border;
+    border-radius: 8px;
+
+    font-size: 12px;
+
+    &.saved {
+      background: #f0fdfa;
+
+      border-color: #99f6e4;
+    }
+
+    &.failed {
+      background: #fef2f2;
+
+      border-color: #fecaca;
+    }
+  }
+
+  .retry-btn {
+    min-height: 44px;
+  }
+
+  // ERREURS
+
+  .mail-error {
+    padding: 12px;
+
+    font-size: 12px;
+  }
+
+  // PIED DE PAGE
+
+  .mail-footer {
+    display: grid;
+
+    grid-template-columns: minmax(0, 1fr);
+
+    gap: 10px;
+
+    padding: 12px 16px;
+
+    padding-bottom: max(
+      12px,
+      env(safe-area-inset-bottom)
+    );
+
+    padding-left: max(
+      16px,
+      env(safe-area-inset-left)
+    );
+
+    padding-right: max(
+      16px,
+      env(safe-area-inset-right)
+    );
   }
 
   .footer-actions {
-    flex: 1;
-    justify-content: flex-end;
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(0, 1.5fr);
+
+    gap: 10px;
+
+    width: 100%;
+  }
+
+  .primary-btn,
+  .secondary-btn,
+  .delete-btn {
+    min-height: 44px;
+
+    padding: 10px 12px;
+
+    font-size: 13px;
   }
 
   .primary-btn,
   .secondary-btn {
-    padding: 10px 14px;
+    width: 100%;
+  }
+
+  .delete-btn {
+    justify-self: start;
+
+    padding: 8px 10px;
+
+    color: #b91c1c;
+
+    font-size: 12px;
   }
 
 }
 
+// ==========================================
+// RESPONSIVE - PETITS SMARTPHONES
+// ==========================================
+
+@media (max-width: 360px) {
+
+  .mail-header {
+    padding-inline: 12px;
+
+    h2 {
+      font-size: 16px;
+    }
+  }
+
+  .mail-fields {
+    gap: 12px;
+
+    padding-inline: 12px;
+  }
+
+  .mail-footer {
+    padding-inline: 12px;
+  }
+
+  .footer-actions {
+    gap: 8px;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    padding-inline: 8px;
+
+    font-size: 12px;
+  }
+
+  .mail-field textarea {
+    min-height: 200px;
+  }
+
+}
+
+// ==========================================
+// ECRANS DE FAIBLE HAUTEUR
+// ==========================================
+
+@media (max-height: 550px) {
+
+  .mail-overlay {
+    padding-block: 8px;
+  }
+
+  .mail-modal {
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .mail-header {
+    padding-block: 8px;
+  }
+
+  .mail-fields {
+    gap: 12px;
+
+    padding-block: 12px;
+  }
+
+  .mail-footer {
+    padding-block: 10px;
+  }
+
+}
+
+@media (max-width: 600px) and (max-height: 550px) {
+
+  .mail-overlay {
+    padding: 0;
+  }
+
+  .mail-modal {
+    max-height: 100vh;
+    max-height: 100dvh;
+  }
+
+  .mail-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    padding-bottom: max(
+      8px,
+      env(safe-area-inset-bottom)
+    );
+  }
+
+  .footer-actions {
+    flex: 1 1 180px;
+
+    width: auto;
+  }
+
+  .delete-btn {
+    flex: 0 1 auto;
+  }
+
+}
+
+// ==========================================
+// REDUCTION DES ANIMATIONS
+// ==========================================
+
 @media (prefers-reduced-motion: reduce) {
 
-  .save-spinner {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
   }
 
 }

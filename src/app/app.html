@@ -1,45 +1,192 @@
 <div class="app-layout">
-  <aside class="sidebar">
 
-    <div class="brand">
+  <!-- ========================================== -->
+  <!-- BARRE SUPERIEURE MOBILE                    -->
+  <!-- ========================================== -->
+
+  <header class="mobile-header">
+
+    <button
+      type="button"
+      class="mobile-menu-toggle"
+      (click)="toggleMobileMenu()"
+      [attr.aria-expanded]="mobileMenuOpen()"
+      [attr.aria-label]="mobileMenuOpen()
+        ? 'Fermer le menu'
+        : 'Ouvrir le menu'"
+      aria-controls="main-sidebar"
+    >
+      <span
+        class="hamburger"
+        [class.is-open]="mobileMenuOpen()"
+        aria-hidden="true"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    </button>
+
+    <a
+      class="mobile-brand"
+      routerLink="/"
+      (click)="closeMobileMenu()"
+    >
       <span class="brand-icon">M</span>
 
       <div>
         <strong>MargeWeb</strong>
         <small>CRM</small>
       </div>
+    </a>
+
+    <div class="mobile-header-actions">
+
+      <a
+        class="mobile-notification"
+        routerLink="/follow-ups"
+        aria-label="Relances"
+      >
+        <span aria-hidden="true">⏰</span>
+
+        @if (urgentFollowUpCount() > 0) {
+          <span class="mobile-notification-count">
+            {{ urgentFollowUpCount() }}
+          </span>
+        }
+      </a>
+
+      <a
+        class="mobile-notification"
+        routerLink="/messaging"
+        aria-label="Messagerie"
+      >
+        <span aria-hidden="true">📨</span>
+
+        @if (unreadEmailCount() > 0) {
+          <span class="mobile-notification-count">
+            {{ unreadEmailCount() }}
+          </span>
+        }
+      </a>
+
     </div>
 
-    <nav class="navigation">
+  </header>
+
+  <!-- ========================================== -->
+  <!-- FOND DU MENU MOBILE                        -->
+  <!-- ========================================== -->
+
+  @if (mobileMenuOpen()) {
+
+    <div
+      class="sidebar-overlay"
+      (click)="closeMobileMenu()"
+      aria-hidden="true"
+    ></div>
+
+  }
+
+  <!-- ========================================== -->
+  <!-- BARRE LATERALE                             -->
+  <!-- ========================================== -->
+
+  <aside
+    id="main-sidebar"
+    class="sidebar"
+    [class.mobile-open]="mobileMenuOpen()"
+  >
+
+    <div class="sidebar-header">
+
+      <a
+        class="brand"
+        routerLink="/"
+        (click)="closeMobileMenu()"
+      >
+        <span class="brand-icon">M</span>
+
+        <div>
+          <strong>MargeWeb</strong>
+          <small>CRM</small>
+        </div>
+      </a>
+
+      <button
+        type="button"
+        class="sidebar-close"
+        (click)="closeMobileMenu()"
+        aria-label="Fermer le menu"
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
+        </svg>
+      </button>
+
+    </div>
+
+    <!-- ======================================== -->
+    <!-- NAVIGATION PRINCIPALE                    -->
+    <!-- ======================================== -->
+
+    <nav
+      class="navigation"
+      aria-label="Navigation principale"
+    >
 
       <a
         routerLink="/"
         routerLinkActive="active"
         [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
       >
-        <span class="icon">📅</span> Tableau de bord
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">📅</span>
+          <span class="nav-label">Tableau de bord</span>
+        </span>
       </a>
 
       <a
         routerLink="/prospects"
         routerLinkActive="active"
+        ariaCurrentWhenActive="page"
       >
-        <span class="icon">♟️</span> Prospects
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">♟️</span>
+          <span class="nav-label">Prospects</span>
+        </span>
       </a>
 
       <a
         routerLink="/pipeline"
         routerLinkActive="active"
+        ariaCurrentWhenActive="page"
       >
-        <span class="icon">📊</span> Pipeline
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">📊</span>
+          <span class="nav-label">Pipeline</span>
+        </span>
       </a>
 
       <a
         routerLink="/follow-ups"
         routerLinkActive="active"
+        ariaCurrentWhenActive="page"
       >
-        <span>
-          <span class="icon">⏰</span> Relances
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">⏰</span>
+          <span class="nav-label">Relances</span>
         </span>
 
         @if (urgentFollowUpCount() > 0) {
@@ -52,8 +199,12 @@
       <a
         routerLink="/messaging"
         routerLinkActive="active"
+        ariaCurrentWhenActive="page"
       >
-        <span class="icon">📨</span> Messagerie
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">📨</span>
+          <span class="nav-label">Messagerie</span>
+        </span>
 
         @if (unreadEmailCount() > 0) {
           <span class="notification-count">
@@ -65,25 +216,41 @@
       <a
         routerLink="/clients"
         routerLinkActive="active"
+        ariaCurrentWhenActive="page"
       >
-        <span class="icon">🤝</span> Clients
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">🤝</span>
+          <span class="nav-label">Clients</span>
+        </span>
       </a>
 
       <a
         routerLink="/subscriptions"
         routerLinkActive="active"
+        ariaCurrentWhenActive="page"
       >
-        <span class="icon">🔄</span> Abonnements
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">🔄</span>
+          <span class="nav-label">Abonnements</span>
+        </span>
       </a>
 
       <a
         routerLink="/quotes"
         routerLinkActive="active"
+        ariaCurrentWhenActive="page"
       >
-        <span class="icon">📄</span> Devis
+        <span class="nav-link-content">
+          <span class="icon" aria-hidden="true">📄</span>
+          <span class="nav-label">Devis</span>
+        </span>
       </a>
 
     </nav>
+
+    <!-- ======================================== -->
+    <!-- PIED DE LA BARRE LATERALE                 -->
+    <!-- ======================================== -->
 
     <div class="sidebar-footer">
       MargeWeb CRM · v1.0
@@ -91,7 +258,12 @@
 
   </aside>
 
+  <!-- ========================================== -->
+  <!-- CONTENU PRINCIPAL                          -->
+  <!-- ========================================== -->
+
   <main class="main-content">
     <router-outlet />
   </main>
+
 </div>
